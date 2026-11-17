@@ -1,0 +1,373 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { 
+  X, 
+  MapPin, 
+  ExternalLink, 
+  Check, 
+  AlertTriangle, 
+  MessageSquare, 
+  ShieldCheck, 
+  Clock, 
+  Send,
+  Navigation,
+  Lock
+} from "lucide-react";
+import { PromoPost, PromoComment } from "@/lib/mock-data";
+import { formatRupiah, cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/auth-context";
+
+interface PromoDetailSheetProps {
+  promo: PromoPost | null;
+  onClose: () => void;
+  onConfirm: (promoId: string) => void;
+}
+
+export function PromoDetailSheet({ promo, onClose, onConfirm }: PromoDetailSheetProps) {
+  const { user, requireAuth } = useAuth();
+  const [commentText, setCommentText] = useState("");
+  const [comments, setComments] = useState<PromoComment[]>(promo?.comments || []);
+  const [isConfirmed, setIsConfirmed] = useState(false);
+  const [confirmCount, setConfirmCount] = useState(promo?.confirmedCount || 0);
+  const [isReportedExpired, setIsReportedExpired] = useState(false);
+
+  useEffect(() => {
+    if (promo) {
+      setComments(promo.comments || []);
+      setConfirmCount(promo.confirmedCount);
+      setIsConfirmed(false);
+      setIsReportedExpired(false);
+    }
+  }, [promo]);
+
+  useEffect(() => {
+    if (promo) {
+      const originalStyle = window.getComputedStyle(document.body).overflow;
+      document.body.style.overflow = "hidden";
+
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === "Escape") onClose();
+      };
+      window.addEventListener("keydown", handleKeyDown);
+
+      return () => {
+        document.body.style.overflow = originalStyle;
+        window.removeEventListener("keydown", handleKeyDown);
+      };
+    }
+  }, [promo, onClose]);
+
+  if (!promo) return null;
+
+  const handleOpenGoogleMaps = () => {
+    const encoded = encodeURIComponent(promo.address || promo.storeName);
+    window.open(`https://www.google.com/maps/search/?api=1&query=${encoded}`, "_blank");
+  };
+
+  const handleConfirmAction = () => {
+    requireAuth(() => {
+      if (!isConfirmed) {
+        setIsConfirmed(true);
+        setConfirmCount((c) => c + 1);
+        onConfirm(promo.id);
+      } else {
+        setIsConfirmed(false);
+        setConfirmCount((c) => c - 1);
+      }
+    }, "Masuk untuk mengonfirmasi bahwa promo ini masih tersedia di lokasi.");
+  };
+
+  const handleReportExpired = () => {
+    requireAuth(() => {
+      setIsReportedExpired(!isReportedExpired);
+    }, "Masuk untuk melaporkan bahwa promo ini sudah habis atau kedaluwarsa.");
+  };
+
+  const handleAddComment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!commentText.trim()) return;
+
+    requireAuth(() => {
+      const newComment: PromoComment = {
+        id: `c-${Date.now()}`,
+        userName: user?.name || "Saya",
+        userAvatar: user?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80",
+        badge: user?.badge || "Warga",
+        content: commentText.trim(),
+        timeAgo: "Baru saja",
+        isVerifiedBuyer: true,
+      };
+
+      setComments([newComment, ...comments]);
+      setCommentText("");
+    }, "Masuk untuk menulis komentar update stok.");
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end">
+      {/* Backdrop */}
+      <div 
+        className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
+        onClick={onClose}
+      />
+
+      {/* Sheet Container */}
+      <div className="relative z-10 flex h-[90vh] sm:h-full w-full sm:max-w-lg mt-auto sm:mt-0 flex-col bg-white shadow-2xl dark:bg-zinc-900 border-t sm:border-t-0 sm:border-l border-zinc-200 dark:border-zinc-800 rounded-t-2xl sm:rounded-none overflow-hidden overscroll-contain animate-in slide-in-from-bottom sm:slide-in-from-right duration-200">
+        
+        {/* Mobile Pull Bar */}
+        <div className="sm:hidden flex justify-center pt-2.5 pb-1">
+          <div className="h-1 w-10 rounded-full bg-zinc-300 dark:bg-zinc-700" />
+        </div>
+
+        {/* Header Sheet */}
+        <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800 shrink-0 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-sm">
+          <div className="flex items-center gap-2">
+            <span className="bg-red-600 text-white text-[11px] font-bold px-1.5 py-0.5 rounded-xs">
+              -{promo.discountPercentage}%
+            </span>
+            <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+              Rincian & Lokasi Promo
+            </span>
+          </div>
+
+          <button
+            onClick={onClose}
+            className="flex h-7 w-7 items-center justify-center rounded border border-zinc-200 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800 text-zinc-500"
+            title="Tutup (Esc)"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Body Content */}
+        <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-4">
+          
+          {/* 1. Foto Bukti */}
+          <div className="relative aspect-16/10 w-full overflow-hidden rounded border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-800">
+            <img
+              src={promo.imageUrl}
+              alt={promo.title}
+              className="h-full w-full object-cover"
+            />
+            <div className="absolute bottom-2 left-2">
+              <span className="bg-zinc-900/90 text-zinc-100 text-[10px] px-2 py-0.5 rounded-xs font-medium">
+                {promo.storeType}
+              </span>
+            </div>
+            <div className="absolute top-2 right-2">
+              <span className="bg-emerald-600/90 text-white text-[10px] px-2 py-0.5 rounded-xs font-medium flex items-center gap-1">
+                <ShieldCheck className="h-3 w-3" />
+                Bukti Foto Terlampir
+              </span>
+            </div>
+          </div>
+
+          {/* 2. Judul & Harga */}
+          <div>
+            <h2 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100 leading-snug">
+              {promo.title}
+            </h2>
+
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-xl font-extrabold text-red-600 dark:text-red-500">
+                {formatRupiah(promo.promoPrice)}
+              </span>
+              <span className="text-xs text-zinc-400 line-through">
+                {formatRupiah(promo.originalPrice)}
+              </span>
+              <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 ml-auto">
+                Hemat {formatRupiah(promo.originalPrice - promo.promoPrice)}
+              </span>
+            </div>
+
+            <div className="mt-2 flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+              <Clock className="h-3.5 w-3.5 text-zinc-400" />
+              <span>Batas Masa Berlaku: <strong className="text-zinc-800 dark:text-zinc-200">{promo.validUntil}</strong></span>
+            </div>
+
+            {promo.notes && (
+              <div className="mt-2.5 rounded bg-zinc-50 p-2.5 text-xs text-zinc-600 dark:bg-zinc-800/60 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800">
+                <span className="font-semibold text-zinc-900 dark:text-zinc-100">Catatan Kontributor: </span>
+                {promo.notes}
+              </div>
+            )}
+          </div>
+
+          {/* 3. LOKASI BERBENTUK MAPS */}
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900/90 space-y-2.5">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Lokasi Promo</span>
+                <h3 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5 mt-0.5">
+                  <MapPin className="h-3.5 w-3.5 text-red-600 shrink-0" />
+                  <span>{promo.storeName}</span>
+                </h3>
+              </div>
+              <span className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 bg-zinc-200/70 dark:bg-zinc-800 px-2 py-0.5 rounded">
+                ~{promo.distance}
+              </span>
+            </div>
+
+            <p className="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
+              {promo.address}
+            </p>
+
+            {/* Visual Mini Map Box */}
+            <div 
+              onClick={handleOpenGoogleMaps}
+              className="group relative h-28 w-full rounded overflow-hidden border border-zinc-300 dark:border-zinc-700 cursor-pointer bg-zinc-200 dark:bg-zinc-800"
+            >
+              <img
+                src="https://images.unsplash.com/photo-1524661135-423995f22d0b?w=700&auto=format&fit=crop&q=80"
+                alt="Peta Lokasi"
+                className="h-full w-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-300"
+              />
+
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="flex flex-col items-center animate-bounce">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-600 text-white shadow-lg shadow-red-600/40">
+                    <Navigation className="h-4 w-4" />
+                  </div>
+                  <div className="mt-1 bg-zinc-900/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
+                    {promo.storeName}
+                  </div>
+                </div>
+              </div>
+
+              <div className="absolute bottom-2 right-2 flex items-center gap-1 bg-white/95 text-zinc-900 text-[10px] font-bold px-2 py-1 rounded shadow-md dark:bg-zinc-900/95 dark:text-zinc-100">
+                <span>Buka di Google Maps</span>
+                <ExternalLink className="h-3 w-3 text-red-600" />
+              </div>
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleOpenGoogleMaps}
+              className="w-full text-xs font-semibold gap-1.5 border-zinc-300 dark:border-zinc-700"
+            >
+              <Navigation className="h-3.5 w-3.5 text-red-600" />
+              <span>Petunjuk Arah (Navigasi Maps)</span>
+            </Button>
+          </div>
+
+          {/* 4. Validasi Komunitas (Requires Login) */}
+          <div className="rounded border border-zinc-200 p-3 dark:border-zinc-800 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold text-zinc-900 dark:text-zinc-100">Konfirmasi Warga</span>
+              <span className="text-[11px] text-zinc-500">
+                {confirmCount} warga memastikan harga benar
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={handleConfirmAction}
+                className={cn(
+                  "flex items-center justify-center gap-1.5 rounded border py-2 px-2 text-xs font-medium transition-colors",
+                  isConfirmed
+                    ? "border-emerald-600 bg-emerald-600 text-white"
+                    : "border-emerald-600 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
+                )}
+              >
+                <Check className="h-3.5 w-3.5" />
+                <span>{isConfirmed ? "Sudah Anda Validasi" : `Masih Ada (${confirmCount})`}</span>
+              </button>
+
+              <button
+                onClick={handleReportExpired}
+                className={cn(
+                  "flex items-center justify-center gap-1.5 rounded border py-2 px-2 text-xs font-medium transition-colors",
+                  isReportedExpired
+                    ? "border-amber-600 bg-amber-600 text-white"
+                    : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-300"
+                )}
+              >
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                <span>{isReportedExpired ? "Laporan Terkirim" : "Lapor Habis"}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 5. Kolom Diskusi Warga */}
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+                <MessageSquare className="h-3.5 w-3.5 text-zinc-400" />
+                <span>Diskusi Lapangan ({comments.length})</span>
+              </h4>
+              <span className="text-[10px] text-zinc-400">Update stok terkini</span>
+            </div>
+
+            {/* Form Input Komentar */}
+            <form onSubmit={handleAddComment} className="flex gap-1.5">
+              <input
+                type="text"
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                placeholder={user ? "Tulis update stok terkini..." : "Masuk untuk menulis komentar update stok..."}
+                className="flex-1 rounded border border-zinc-200 bg-zinc-50 px-2.5 py-1.5 text-xs text-zinc-900 placeholder:text-zinc-500 focus:border-zinc-400 focus:bg-white focus:outline-none dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder:text-zinc-400"
+              />
+              <Button type="submit" size="sm" variant="default" className="h-8 px-3 shrink-0">
+                <Send className="h-3 w-3" />
+              </Button>
+            </form>
+
+            <div className="space-y-2">
+              {comments.map((c) => (
+                <div key={c.id} className="rounded border border-zinc-100 bg-zinc-50/50 p-2.5 text-xs dark:border-zinc-800/80 dark:bg-zinc-800/40">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-semibold text-zinc-900 dark:text-zinc-100">{c.userName}</span>
+                      <span className="text-[9px] bg-zinc-200 dark:bg-zinc-700 px-1 py-0.2 rounded text-zinc-600 dark:text-zinc-300">
+                        {c.badge}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-zinc-400">{c.timeAgo}</span>
+                  </div>
+                  <p className="text-zinc-700 dark:text-zinc-300 text-[11px] leading-relaxed">
+                    {c.content}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
+
+        {/* Footer Fixed Action */}
+        <div className="border-t border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900 shrink-0 flex items-center justify-between gap-2">
+          <div className="flex flex-col">
+            <span className="text-[10px] text-zinc-400">Total Harga Promo</span>
+            <span className="text-sm font-bold text-red-600">{formatRupiah(promo.promoPrice)}</span>
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleOpenGoogleMaps}
+              className="text-xs gap-1"
+            >
+              <Navigation className="h-3 w-3 text-red-600" />
+              <span>Buka Maps</span>
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleConfirmAction}
+              className="text-xs gap-1"
+            >
+              <Check className="h-3 w-3" />
+              <span>{isConfirmed ? "Valid" : "Konfirmasi"}</span>
+            </Button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}

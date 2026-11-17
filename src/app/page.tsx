@@ -12,7 +12,8 @@ import {
 } from "lucide-react";
 import { HeaderNav } from "@/components/HeaderNav";
 import { PromoCard } from "@/components/PromoCard";
-import { MOCK_PROMO_POSTS } from "@/lib/mock-data";
+import { PromoDetailSheet } from "@/components/PromoDetailSheet";
+import { MOCK_PROMO_POSTS, PromoPost } from "@/lib/mock-data";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -33,6 +34,9 @@ export default function LandingPage() {
   const [selectedLocation, setSelectedLocation] = useState("Semua Area");
   const [searchQuery, setSearchQuery] = useState("");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  
+  // State untuk Detail Sheet Promo Aktif
+  const [activeDetailPromo, setActiveDetailPromo] = useState<PromoPost | null>(null);
 
   const filterRef = useRef<HTMLDivElement>(null);
 
@@ -232,7 +236,7 @@ export default function LandingPage() {
           <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-none sm:grid sm:grid-cols-3 md:grid-cols-4 sm:overflow-visible sm:pb-0">
             {popularPosts.map((promo) => (
               <div key={promo.id} className="w-[145px] sm:w-auto shrink-0 sm:shrink">
-                <PromoCard promo={promo} />
+                <PromoCard promo={promo} onSelect={(p) => setActiveDetailPromo(p)} />
               </div>
             ))}
           </div>
@@ -253,7 +257,7 @@ export default function LandingPage() {
           <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-none sm:grid sm:grid-cols-3 md:grid-cols-4 sm:overflow-visible sm:pb-0">
             {biggestDiscountPosts.map((promo) => (
               <div key={promo.id} className="w-[145px] sm:w-auto shrink-0 sm:shrink">
-                <PromoCard promo={promo} />
+                <PromoCard promo={promo} onSelect={(p) => setActiveDetailPromo(p)} />
               </div>
             ))}
           </div>
@@ -273,11 +277,20 @@ export default function LandingPage() {
 
           <div className="grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5">
             {latestPosts.map((promo) => (
-              <PromoCard key={promo.id} promo={promo} />
+              <PromoCard key={promo.id} promo={promo} onSelect={(p) => setActiveDetailPromo(p)} />
             ))}
           </div>
         </section>
       </main>
+
+      {/* Sheet Detail Promo (Slide-over di Desktop, Bottom Sheet di Mobile) */}
+      <PromoDetailSheet
+        promo={activeDetailPromo}
+        onClose={() => setActiveDetailPromo(null)}
+        onConfirm={(id) => {
+          console.log("Confirmed deal:", id);
+        }}
+      />
 
       {/* Footer Minimalis */}
       <footer className="mt-12 border-t border-zinc-200 py-6 text-center text-xs text-zinc-400 dark:border-zinc-800">
