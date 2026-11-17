@@ -56,7 +56,7 @@ export function AuthModal() {
             <Button
               variant="primary"
               className="w-full text-xs font-semibold py-2"
-              onClick={login}
+              onClick={() => login()}
             >
               Masuk Sekarang (Simulasi)
             </Button>
