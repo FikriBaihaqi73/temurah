@@ -16,13 +16,14 @@ export type PromoPost = {
   storeType: "Supermarket" | "Pasar Tradisional" | "Minimarket" | "Online / Marketplace" | "Toko Lokal";
   location: string;
   address: string;
-  googleMapsQuery: string; // Query pencarian saat klik buka maps
+  lat: number;
+  lng: number;
   distance: string;
   originalPrice: number;
   promoPrice: number;
   discountPercentage: number;
   validUntil: string;
-  notes: string; // Catatan tambahan bukti promo (misal: syarat beli 2, pakai QRIS, dll)
+  notes: string;
   imageUrl: string;
   contributor: {
     name: string;
@@ -45,7 +46,8 @@ export const MOCK_PROMO_POSTS: PromoPost[] = [
     storeType: "Supermarket",
     location: "Jl. Kaliurang KM 6, Sleman",
     address: "Jl. Kaliurang KM 6.2 No. 18, Manggung, Caturtunggal, Sleman, D.I. Yogyakarta 55281",
-    googleMapsQuery: "Superindo Kaliurang Yogyakarta",
+    lat: -7.7554,
+    lng: 110.3812,
     distance: "1.2 km",
     originalPrice: 38900,
     promoPrice: 28500,
@@ -60,7 +62,7 @@ export const MOCK_PROMO_POSTS: PromoPost[] = [
     },
     confirmedCount: 38,
     expiredReportsCount: 1,
-    commentsCount: 3,
+    commentsCount: 2,
     comments: [
       {
         id: "c-1",
@@ -90,7 +92,8 @@ export const MOCK_PROMO_POSTS: PromoPost[] = [
     storeType: "Pasar Tradisional",
     location: "Kranggan, Jetis, Kota Yogyakarta",
     address: "Lantai 1 Blok B2 No. 14 Pasar Kranggan, Jl. Poncowinatan, Gowongan, Jetis, Yogyakarta",
-    googleMapsQuery: "Pasar Kranggan Yogyakarta",
+    lat: -7.7829,
+    lng: 110.3671,
     distance: "2.5 km",
     originalPrice: 75000,
     promoPrice: 48000,
@@ -105,7 +108,7 @@ export const MOCK_PROMO_POSTS: PromoPost[] = [
     },
     confirmedCount: 24,
     expiredReportsCount: 0,
-    commentsCount: 2,
+    commentsCount: 1,
     comments: [
       {
         id: "c-3",
@@ -127,7 +130,8 @@ export const MOCK_PROMO_POSTS: PromoPost[] = [
     storeType: "Minimarket",
     location: "Jl. Colombo No. 3, Sleman",
     address: "Jl. Colombo No. 3, Caturtunggal, Depok, Sleman (Dekat UNY)",
-    googleMapsQuery: "Indomaret Point Colombo Yogyakarta",
+    lat: -7.7749,
+    lng: 110.3871,
     distance: "800 m",
     originalPrice: 21500,
     promoPrice: 16900,
@@ -142,7 +146,7 @@ export const MOCK_PROMO_POSTS: PromoPost[] = [
     },
     confirmedCount: 15,
     expiredReportsCount: 0,
-    commentsCount: 1,
+    commentsCount: 0,
     comments: [],
   },
   {
@@ -153,7 +157,8 @@ export const MOCK_PROMO_POSTS: PromoPost[] = [
     storeType: "Supermarket",
     location: "Babarsari, Depok, Sleman",
     address: "Jl. Raya Babarsari No. 10, Caturtunggal, Depok, Sleman",
-    googleMapsQuery: "Mirota Kampus Babarsari",
+    lat: -7.7816,
+    lng: 110.4143,
     distance: "3.1 km",
     originalPrice: 44000,
     promoPrice: 29900,
@@ -168,7 +173,7 @@ export const MOCK_PROMO_POSTS: PromoPost[] = [
     },
     confirmedCount: 42,
     expiredReportsCount: 0,
-    commentsCount: 4,
+    commentsCount: 0,
     comments: [],
     isHot: true,
   },
@@ -180,7 +185,8 @@ export const MOCK_PROMO_POSTS: PromoPost[] = [
     storeType: "Toko Lokal",
     location: "Jl. Affandi Gejayan No. 12",
     address: "Jl. Affandi No. 12, Santren, Caturtunggal, Sleman",
-    googleMapsQuery: "Jl Affandi Gejayan No 12 Sleman",
+    lat: -7.7712,
+    lng: 110.3925,
     distance: "1.5 km",
     originalPrice: 31000,
     promoPrice: 25000,
@@ -195,7 +201,7 @@ export const MOCK_PROMO_POSTS: PromoPost[] = [
     },
     confirmedCount: 19,
     expiredReportsCount: 0,
-    commentsCount: 2,
+    commentsCount: 0,
     comments: [],
   },
   {
@@ -206,7 +212,8 @@ export const MOCK_PROMO_POSTS: PromoPost[] = [
     storeType: "Pasar Tradisional",
     location: "Jl. Kaliurang KM 7",
     address: "Pasar Colombo Los B4, Jl. Kaliurang KM 7.2, Condongcatur, Sleman",
-    googleMapsQuery: "Pasar Colombo Sleman",
+    lat: -7.7478,
+    lng: 110.3834,
     distance: "1.8 km",
     originalPrice: 78000,
     promoPrice: 66000,
@@ -221,7 +228,7 @@ export const MOCK_PROMO_POSTS: PromoPost[] = [
     },
     confirmedCount: 31,
     expiredReportsCount: 1,
-    commentsCount: 2,
+    commentsCount: 0,
     comments: [],
   },
 ];

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
 import { MapPin, ChevronDown, Check, Plus, Tag, LogIn, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
@@ -100,15 +101,16 @@ export function HeaderNav({
         <div className="flex items-center gap-2">
           {user ? (
             <>
-              <Button
-                variant="primary"
-                size="sm"
-                className="h-7 sm:h-8 px-2 sm:px-3 text-[11px] sm:text-xs gap-1"
-                onClick={() => alert("Fitur formulir tambah diskon segera dibuka")}
-              >
-                <Plus className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                <span>Bagi Diskon</span>
-              </Button>
+              <Link href="/submit">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  className="h-7 sm:h-8 px-2 sm:px-3 text-[11px] sm:text-xs gap-1"
+                >
+                  <Plus className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                  <span>Bagi Diskon</span>
+                </Button>
+              </Link>
 
               {/* Profile Avatar & Dropdown Logout */}
               <div className="relative" ref={profileRef}>

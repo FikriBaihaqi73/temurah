@@ -4,19 +4,18 @@ import { useState, useEffect } from "react";
 import { 
   X, 
   MapPin, 
-  ExternalLink, 
   Check, 
   AlertTriangle, 
   MessageSquare, 
   ShieldCheck, 
   Clock, 
   Send,
-  Navigation,
-  Lock
+  Navigation
 } from "lucide-react";
 import { PromoPost, PromoComment } from "@/lib/mock-data";
 import { formatRupiah, cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { OpenStreetMapViewer } from "@/components/ui/open-street-map";
 import { useAuth } from "@/lib/auth-context";
 
 interface PromoDetailSheetProps {
@@ -62,7 +61,7 @@ export function PromoDetailSheet({ promo, onClose, onConfirm }: PromoDetailSheet
   if (!promo) return null;
 
   const handleOpenGoogleMaps = () => {
-    const encoded = encodeURIComponent(promo.address || promo.storeName);
+    const encoded = encodeURIComponent(`${promo.storeName} ${promo.address}`);
     window.open(`https://www.google.com/maps/search/?api=1&query=${encoded}`, "_blank");
   };
 
@@ -195,11 +194,11 @@ export function PromoDetailSheet({ promo, onClose, onConfirm }: PromoDetailSheet
             )}
           </div>
 
-          {/* 3. LOKASI BERBENTUK MAPS */}
+          {/* 3. LOKASI DENGAN LIVE OPENSTREETMAP (BEBAS API KEY) */}
           <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900/90 space-y-2.5">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Lokasi Promo</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Lokasi Penemuan</span>
                 <h3 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5 mt-0.5">
                   <MapPin className="h-3.5 w-3.5 text-red-600 shrink-0" />
                   <span>{promo.storeName}</span>
@@ -214,33 +213,14 @@ export function PromoDetailSheet({ promo, onClose, onConfirm }: PromoDetailSheet
               {promo.address}
             </p>
 
-            {/* Visual Mini Map Box */}
-            <div 
-              onClick={handleOpenGoogleMaps}
-              className="group relative h-28 w-full rounded overflow-hidden border border-zinc-300 dark:border-zinc-700 cursor-pointer bg-zinc-200 dark:bg-zinc-800"
-            >
-              <img
-                src="https://images.unsplash.com/photo-1524661135-423995f22d0b?w=700&auto=format&fit=crop&q=80"
-                alt="Peta Lokasi"
-                className="h-full w-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-300"
-              />
-
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="flex flex-col items-center animate-bounce">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-600 text-white shadow-lg shadow-red-600/40">
-                    <Navigation className="h-4 w-4" />
-                  </div>
-                  <div className="mt-1 bg-zinc-900/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
-                    {promo.storeName}
-                  </div>
-                </div>
-              </div>
-
-              <div className="absolute bottom-2 right-2 flex items-center gap-1 bg-white/95 text-zinc-900 text-[10px] font-bold px-2 py-1 rounded shadow-md dark:bg-zinc-900/95 dark:text-zinc-100">
-                <span>Buka di Google Maps</span>
-                <ExternalLink className="h-3 w-3 text-red-600" />
-              </div>
-            </div>
+            {/* Komponen Peta Interaktif Langsung */}
+            <OpenStreetMapViewer
+              lat={promo.lat || -7.7829}
+              lng={promo.lng || 110.3671}
+              title={promo.storeName}
+              address={promo.address}
+              className="h-36 sm:h-44"
+            />
 
             <Button
               type="button"
@@ -250,11 +230,11 @@ export function PromoDetailSheet({ promo, onClose, onConfirm }: PromoDetailSheet
               className="w-full text-xs font-semibold gap-1.5 border-zinc-300 dark:border-zinc-700"
             >
               <Navigation className="h-3.5 w-3.5 text-red-600" />
-              <span>Petunjuk Arah (Navigasi Maps)</span>
+              <span>Petunjuk Arah Rute Jalan</span>
             </Button>
           </div>
 
-          {/* 4. Validasi Komunitas (Requires Login) */}
+          {/* 4. Validasi Komunitas */}
           <div className="rounded border border-zinc-200 p-3 dark:border-zinc-800 space-y-2">
             <div className="flex items-center justify-between text-xs">
               <span className="font-semibold text-zinc-900 dark:text-zinc-100">Konfirmasi Warga</span>
@@ -302,16 +282,15 @@ export function PromoDetailSheet({ promo, onClose, onConfirm }: PromoDetailSheet
               <span className="text-[10px] text-zinc-400">Update stok terkini</span>
             </div>
 
-            {/* Form Input Komentar */}
             <form onSubmit={handleAddComment} className="flex gap-1.5">
               <input
                 type="text"
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
                 placeholder={user ? "Tulis update stok terkini..." : "Masuk untuk menulis komentar update stok..."}
-                className="flex-1 rounded border border-zinc-200 bg-zinc-50 px-2.5 py-1.5 text-xs text-zinc-900 placeholder:text-zinc-500 focus:border-zinc-400 focus:bg-white focus:outline-none dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder:text-zinc-400"
+                className="flex-1 rounded border border-zinc-300 bg-white px-2.5 py-1.5 text-xs text-zinc-900 placeholder:text-zinc-500 focus:border-red-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder:text-zinc-400 dark:focus:border-red-500"
               />
-              <Button type="submit" size="sm" variant="default" className="h-8 px-3 shrink-0">
+              <Button type="submit" size="sm" variant="primary" className="h-8 px-3 shrink-0">
                 <Send className="h-3 w-3" />
               </Button>
             </form>
@@ -353,7 +332,7 @@ export function PromoDetailSheet({ promo, onClose, onConfirm }: PromoDetailSheet
               className="text-xs gap-1"
             >
               <Navigation className="h-3 w-3 text-red-600" />
-              <span>Buka Maps</span>
+              <span>Buka Rute</span>
             </Button>
             <Button
               variant="primary"
