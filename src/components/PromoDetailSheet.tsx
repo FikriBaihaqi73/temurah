@@ -10,7 +10,9 @@ import {
   ShieldCheck, 
   Clock, 
   Send,
-  Navigation
+  Navigation,
+  ThumbsUp,
+  ThumbsDown
 } from "lucide-react";
 import { PromoPost, PromoComment } from "@/lib/mock-data";
 import { formatRupiah, cn } from "@/lib/utils";
@@ -28,16 +30,18 @@ export function PromoDetailSheet({ promo, onClose, onConfirm }: PromoDetailSheet
   const { user, requireAuth } = useAuth();
   const [commentText, setCommentText] = useState("");
   const [comments, setComments] = useState<PromoComment[]>(promo?.comments || []);
-  const [isConfirmed, setIsConfirmed] = useState(false);
-  const [confirmCount, setConfirmCount] = useState(promo?.confirmedCount || 0);
-  const [isReportedExpired, setIsReportedExpired] = useState(false);
+  
+  // Status voting user di detail
+  const [userVote, setUserVote] = useState<"valid" | "invalid" | null>(null);
+  const [validCount, setValidCount] = useState(promo?.confirmedCount || 0);
+  const [invalidCount, setInvalidCount] = useState(promo?.expiredReportsCount || 0);
 
   useEffect(() => {
     if (promo) {
       setComments(promo.comments || []);
-      setConfirmCount(promo.confirmedCount);
-      setIsConfirmed(false);
-      setIsReportedExpired(false);
+      setValidCount(promo.confirmedCount);
+      setInvalidCount(promo.expiredReportsCount || 0);
+      setUserVote(null);
     }
   }, [promo]);
 
@@ -65,23 +69,35 @@ export function PromoDetailSheet({ promo, onClose, onConfirm }: PromoDetailSheet
     window.open(`https://www.google.com/maps/search/?api=1&query=${encoded}`, "_blank");
   };
 
-  const handleConfirmAction = () => {
+  const handleValidVote = () => {
     requireAuth(() => {
-      if (!isConfirmed) {
-        setIsConfirmed(true);
-        setConfirmCount((c) => c + 1);
-        onConfirm(promo.id);
+      if (userVote === "valid") {
+        setUserVote(null);
+        setValidCount((c) => c - 1);
       } else {
-        setIsConfirmed(false);
-        setConfirmCount((c) => c - 1);
+        if (userVote === "invalid") {
+          setInvalidCount((c) => c - 1);
+        }
+        setUserVote("valid");
+        setValidCount((c) => c + 1);
+        onConfirm(promo.id);
       }
     }, "Masuk untuk mengonfirmasi bahwa promo ini masih tersedia di lokasi.");
   };
 
-  const handleReportExpired = () => {
+  const handleInvalidVote = () => {
     requireAuth(() => {
-      setIsReportedExpired(!isReportedExpired);
-    }, "Masuk untuk melaporkan bahwa promo ini sudah habis atau kedaluwarsa.");
+      if (userVote === "invalid") {
+        setUserVote(null);
+        setInvalidCount((c) => c - 1);
+      } else {
+        if (userVote === "valid") {
+          setValidCount((c) => c - 1);
+        }
+        setUserVote("invalid");
+        setInvalidCount((c) => c + 1);
+      }
+    }, "Masuk untuk melaporkan promo yang tidak sesuai atau bohong.");
   };
 
   const handleAddComment = (e: React.FormEvent) => {
@@ -194,7 +210,7 @@ export function PromoDetailSheet({ promo, onClose, onConfirm }: PromoDetailSheet
             )}
           </div>
 
-          {/* 3. LOKASI DENGAN LIVE OPENSTREETMAP (BEBAS API KEY) */}
+          {/* 3. LOKASI DENGAN LIVE OPENSTREETMAP */}
           <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900/90 space-y-2.5">
             <div className="flex items-start justify-between gap-2">
               <div>
@@ -213,7 +229,6 @@ export function PromoDetailSheet({ promo, onClose, onConfirm }: PromoDetailSheet
               {promo.address}
             </p>
 
-            {/* Komponen Peta Interaktif Langsung */}
             <OpenStreetMapViewer
               lat={promo.lat || -7.7829}
               lng={promo.lng || 110.3671}
@@ -234,40 +249,44 @@ export function PromoDetailSheet({ promo, onClose, onConfirm }: PromoDetailSheet
             </Button>
           </div>
 
-          {/* 4. Validasi Komunitas */}
-          <div className="rounded border border-zinc-200 p-3 dark:border-zinc-800 space-y-2">
+          {/* 4. VALIDASI KOMUNITAS: VALID VS TIDAK VALID */}
+          <div className="rounded border border-zinc-200 p-3 dark:border-zinc-800 space-y-2.5">
             <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-zinc-900 dark:text-zinc-100">Konfirmasi Warga</span>
+              <span className="font-semibold text-zinc-900 dark:text-zinc-100">Status Validasi Warga</span>
               <span className="text-[11px] text-zinc-500">
-                {confirmCount} warga memastikan harga benar
+                {validCount} Cocok • {invalidCount} Tidak Sesuai
               </span>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
+              {/* Tombol Valid */}
               <button
-                onClick={handleConfirmAction}
+                type="button"
+                onClick={handleValidVote}
                 className={cn(
                   "flex items-center justify-center gap-1.5 rounded border py-2 px-2 text-xs font-medium transition-colors",
-                  isConfirmed
-                    ? "border-emerald-600 bg-emerald-600 text-white"
-                    : "border-emerald-600 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
+                  userVote === "valid"
+                    ? "border-emerald-600 bg-emerald-600 text-white font-bold shadow-xs"
+                    : "border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
                 )}
               >
                 <Check className="h-3.5 w-3.5" />
-                <span>{isConfirmed ? "Sudah Anda Validasi" : `Masih Ada (${confirmCount})`}</span>
+                <span>Valid ({validCount})</span>
               </button>
 
+              {/* Tombol Tidak Valid */}
               <button
-                onClick={handleReportExpired}
+                type="button"
+                onClick={handleInvalidVote}
                 className={cn(
                   "flex items-center justify-center gap-1.5 rounded border py-2 px-2 text-xs font-medium transition-colors",
-                  isReportedExpired
-                    ? "border-amber-600 bg-amber-600 text-white"
-                    : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-300"
+                  userVote === "invalid"
+                    ? "border-red-600 bg-red-600 text-white font-bold shadow-xs"
+                    : "border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
                 )}
               >
-                <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-                <span>{isReportedExpired ? "Laporan Terkirim" : "Lapor Habis"}</span>
+                <X className="h-3.5 w-3.5" />
+                <span>Tidak Valid ({invalidCount})</span>
               </button>
             </div>
           </div>
@@ -337,11 +356,11 @@ export function PromoDetailSheet({ promo, onClose, onConfirm }: PromoDetailSheet
             <Button
               variant="primary"
               size="sm"
-              onClick={handleConfirmAction}
+              onClick={handleValidVote}
               className="text-xs gap-1"
             >
               <Check className="h-3 w-3" />
-              <span>{isConfirmed ? "Valid" : "Konfirmasi"}</span>
+              <span>{userVote === "valid" ? "Tervalidasi" : "Valid"}</span>
             </Button>
           </div>
         </div>

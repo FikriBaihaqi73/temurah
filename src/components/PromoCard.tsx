@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { 
   Check, 
+  X,
   MessageSquare, 
   MapPin, 
   Bookmark,
@@ -19,21 +20,45 @@ interface PromoCardProps {
 
 export function PromoCard({ promo, onSelect }: PromoCardProps) {
   const { requireAuth } = useAuth();
-  const [confirmed, setConfirmed] = useState(false);
-  const [confirmCount, setConfirmCount] = useState(promo.confirmedCount);
+  
+  // Status voting user
+  const [userVote, setUserVote] = useState<"valid" | "invalid" | null>(null);
+  const [validCount, setValidCount] = useState(promo.confirmedCount);
+  const [invalidCount, setInvalidCount] = useState(promo.expiredReportsCount || 0);
   const [saved, setSaved] = useState(false);
 
-  const toggleConfirm = (e: React.MouseEvent) => {
+  // Toggle Valid
+  const toggleValid = (e: React.MouseEvent) => {
     e.stopPropagation();
     requireAuth(() => {
-      if (confirmed) {
-        setConfirmCount((c) => c - 1);
-        setConfirmed(false);
+      if (userVote === "valid") {
+        setUserVote(null);
+        setValidCount((c) => c - 1);
       } else {
-        setConfirmCount((c) => c + 1);
-        setConfirmed(true);
+        if (userVote === "invalid") {
+          setInvalidCount((c) => c - 1);
+        }
+        setUserVote("valid");
+        setValidCount((c) => c + 1);
       }
     }, "Masuk untuk memverifikasi keakuratan promo ini.");
+  };
+
+  // Toggle Tidak Valid
+  const toggleInvalid = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    requireAuth(() => {
+      if (userVote === "invalid") {
+        setUserVote(null);
+        setInvalidCount((c) => c - 1);
+      } else {
+        if (userVote === "valid") {
+          setValidCount((c) => c - 1);
+        }
+        setUserVote("invalid");
+        setInvalidCount((c) => c + 1);
+      }
+    }, "Masuk untuk melaporkan promo yang tidak valid / tidak sesuai.");
   };
 
   const toggleBookmark = (e: React.MouseEvent) => {
@@ -127,31 +152,38 @@ export function PromoCard({ promo, onSelect }: PromoCardProps) {
             </span>
           </div>
 
-          <div className="flex items-center gap-1">
+          {/* DUA TOMBOL VALIDASI: "Valid" & "Tidak Valid" */}
+          <div className="grid grid-cols-2 gap-1.5">
+            {/* Tombol Valid */}
             <button
               type="button"
-              onClick={toggleConfirm}
+              onClick={toggleValid}
               className={cn(
-                "flex flex-1 items-center justify-center gap-1 rounded border py-1.5 sm:py-1 px-1.5 text-[10px] font-medium transition-colors",
-                confirmed
-                  ? "border-emerald-600 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300"
+                "flex items-center justify-center gap-1 rounded border py-1 px-1 text-[10px] font-medium transition-colors",
+                userVote === "valid"
+                  ? "border-emerald-600 bg-emerald-50 text-emerald-800 font-bold dark:border-emerald-600 dark:bg-emerald-950/70 dark:text-emerald-300 ring-1 ring-emerald-500/40"
                   : "border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
               )}
+              title="Konfirmasi harga masih sesuai & berlaku"
             >
-              <Check className="h-2.5 w-2.5" />
-              <span>{confirmed ? "Valid" : `Valid (${confirmCount})`}</span>
+              <Check className="h-2.5 w-2.5 text-emerald-600 dark:text-emerald-400" />
+              <span>Valid ({validCount})</span>
             </button>
 
+            {/* Tombol Tidak Valid */}
             <button
               type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onSelect) onSelect(promo);
-              }}
-              className="hidden sm:flex items-center justify-center gap-1 rounded border border-zinc-200 bg-white py-1 px-2 text-[10px] font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              onClick={toggleInvalid}
+              className={cn(
+                "flex items-center justify-center gap-1 rounded border py-1 px-1 text-[10px] font-medium transition-colors",
+                userVote === "invalid"
+                  ? "border-red-600 bg-red-50 text-red-800 font-bold dark:border-red-600 dark:bg-red-950/70 dark:text-red-300 ring-1 ring-red-500/40"
+                  : "border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+              )}
+              title="Lapor harga tidak sesuai, habis, atau bohong"
             >
-              <span>Detail</span>
-              <ExternalLink className="h-2.5 w-2.5 text-zinc-400" />
+              <X className="h-2.5 w-2.5 text-red-600 dark:text-red-400" />
+              <span>Tidak Valid ({invalidCount})</span>
             </button>
           </div>
         </div>
