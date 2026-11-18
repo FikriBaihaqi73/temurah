@@ -53,6 +53,7 @@ enum StockCondition {
 
 enum ValidationType {
   VALID
+  INVALID
   EXPIRED
 
   @@map("validation_type")
@@ -170,7 +171,7 @@ model PromotionValidationLog {
   id             String          @id @default(uuid()) @db.Uuid
   promotionId    String          @map("promotion_id") @db.Uuid
   userId         String          @map("user_id") @db.Uuid
-  validationType ValidationType  @map("validation_type")
+  validationType ValidationType? @map("validation_type")
   previousType   ValidationType? @map("previous_type")
   note           String?         @db.VarChar(255)
   createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
