@@ -1,0 +1,29 @@
+enum StoreType {
+  TRADITIONAL_MARKET
+  SUPERMARKET
+  LOCAL_STORE
+  MINIMARKET
+  FRUIT_VEGETABLE_STORE
+
+  @@map("store_type")
+}
+
+model Store {
+  id              String    @id @default(uuid()) @db.Uuid
+  name            String    @db.VarChar(150)
+  storeType       StoreType @map("store_type")
+  address         String    @db.Text
+  latitude        Float     @db.DoublePrecision
+  longitude       Float     @db.DoublePrecision
+  createdByUserId String?   @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  createdByUser User?       @relation(fields: [createdByUserId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  promotions    Promotion[]
+
+  @@index([latitude, longitude])
+  @@index([storeType, latitude, longitude])
+  @@index([createdByUserId])
+  @@map("stores")
+}

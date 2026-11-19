@@ -1,0 +1,14 @@
+model UserBookmark {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  promotionId String   @map("promotion_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  promotion Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([userId, promotionId])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([promotionId])
+  @@map("user_bookmarks")
+}

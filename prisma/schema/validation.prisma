@@ -1,0 +1,42 @@
+enum ValidationType {
+  VALID
+  INVALID
+  EXPIRED
+
+  @@map("validation_type")
+}
+
+model PromotionValidation {
+  id             String         @id @default(uuid()) @db.Uuid
+  promotionId    String         @map("promotion_id") @db.Uuid
+  userId         String         @map("user_id") @db.Uuid
+  validationType ValidationType @map("validation_type")
+  note           String?        @db.VarChar(255)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  promotion Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([promotionId, userId])
+  @@index([promotionId, validationType])
+  @@index([userId])
+  @@map("promotion_validations")
+}
+
+model PromotionValidationLog {
+  id             String          @id @default(uuid()) @db.Uuid
+  promotionId    String          @map("promotion_id") @db.Uuid
+  userId         String          @map("user_id") @db.Uuid
+  validationType ValidationType? @map("validation_type")
+  previousType   ValidationType? @map("previous_type")
+  note           String?         @db.VarChar(255)
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  promotion Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([promotionId, createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("promotion_validation_logs")
+}

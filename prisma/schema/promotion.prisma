@@ -1,0 +1,48 @@
+enum PromotionStatus {
+  ACTIVE
+  VERIFIED
+  EXPIRED
+  ARCHIVED
+
+  @@map("promotion_status")
+}
+
+enum StockCondition {
+  PLENTY
+  LIMITED
+  LOW
+
+  @@map("stock_condition")
+}
+
+model Promotion {
+  id              String          @id @default(uuid()) @db.Uuid
+  storeId         String          @map("store_id") @db.Uuid
+  categoryId      String          @map("category_id") @db.Uuid
+  createdByUserId String          @map("created_by_user_id") @db.Uuid
+  productName     String          @map("product_name") @db.VarChar(200)
+  description     String?         @db.Text
+  normalPrice     Int             @map("normal_price")
+  discountPrice   Int             @map("discount_price")
+  imageUrl        String          @map("image_url") @db.Text
+  stockCondition  StockCondition  @default(PLENTY) @map("stock_condition")
+  startsAt        DateTime        @default(now()) @map("starts_at") @db.Timestamptz(6)
+  endsAt          DateTime        @map("ends_at") @db.Timestamptz(6)
+  status          PromotionStatus @default(ACTIVE)
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  store          Store                    @relation(fields: [storeId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  category       Category                 @relation(fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  createdByUser  User                     @relation(fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  validations    PromotionValidation[]
+  validationLogs PromotionValidationLog[]
+  comments       Comment[]
+  bookmarks      UserBookmark[]
+
+  @@index([status, endsAt(sort: Desc)])
+  @@index([categoryId, status, createdAt(sort: Desc)])
+  @@index([storeId, status])
+  @@index([createdByUserId, createdAt(sort: Desc)])
+  @@map("promotions")
+}
