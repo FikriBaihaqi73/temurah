@@ -12,9 +12,8 @@ import {
   Briefcase, 
   GraduationCap, 
   Store, 
-  ShoppingBag,
-  Home,
-  CheckCircle2, 
+  ShoppingBag, 
+  Home, 
   AlertCircle,
   Award,
   Check
@@ -24,7 +23,7 @@ import { Input } from "@/components/ui/input";
 import { useAuth, UserRole } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 
-const ROLE_OPTIONS: { id: UserRole; title: string; desc: string; icon: any; badgeLabel: string }[] = [
+const ROLE_OPTIONS: { id: UserRole; title: string; desc: string; icon: React.ElementType; badgeLabel: string }[] = [
   {
     id: "Mahasiswa",
     title: "Mahasiswa / Pelajar",
@@ -74,7 +73,7 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -94,16 +93,21 @@ export default function RegisterPage() {
     }
 
     setIsLoading(true);
-    setTimeout(() => {
-      register({
-        name,
-        email,
-        password,
-        role: selectedRole,
-      });
-      setIsLoading(false);
+    const result = await register({
+      name,
+      email,
+      password,
+      confirmPassword,
+      role: selectedRole,
+    });
+    setIsLoading(false);
+
+    if (result.success) {
       router.push("/");
-    }, 450);
+      router.refresh();
+    } else {
+      setError(result.error || "Gagal mendaftarkan akun. Silakan periksa data Anda.");
+    }
   };
 
   return (

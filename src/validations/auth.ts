@@ -1,0 +1,50 @@
+import { z } from "zod";
+
+export const USER_ROLES = [
+  "Mahasiswa",
+  "Pekerja / Karyawan",
+  "Ibu Rumah Tangga",
+  "Pemilik UMKM / Usaha",
+  "Pencari Diskon Umum",
+] as const;
+
+export type UserRole = (typeof USER_ROLES)[number];
+
+export const registerSchema = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(2, "Nama minimal 2 karakter.")
+      .max(120, "Nama maksimal 120 karakter."),
+    email: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .email("Format email tidak valid."),
+    password: z
+      .string()
+      .min(6, "Kata sandi minimal 6 karakter.")
+      .max(100, "Kata sandi terlalu panjang."),
+    confirmPassword: z.string().min(1, "Konfirmasi kata sandi wajib diisi."),
+    role: z.enum(USER_ROLES, {
+      message: "Pilihan peran/persona tidak valid.",
+    }),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Konfirmasi kata sandi tidak cocok.",
+    path: ["confirmPassword"],
+  });
+
+export type RegisterInput = z.infer<typeof registerSchema>;
+
+export const loginSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .email("Format email tidak valid."),
+  password: z.string().min(1, "Kata sandi wajib diisi."),
+});
+
+export type LoginInput = z.infer<typeof loginSchema>;

@@ -43,13 +43,13 @@ const STORE_TYPES = [
 
 export default function SubmitDealPage() {
   const router = useRouter();
-  const { user, requireAuth } = useAuth();
+  const { user, isLoading, requireAuth } = useAuth();
 
   useEffect(() => {
-    if (!user) {
+    if (!isLoading && !user) {
       requireAuth(() => {}, "Silakan masuk terlebih dahulu untuk membagikan temuan diskon ke warga.");
     }
-  }, [user, requireAuth]);
+  }, [user, isLoading, requireAuth]);
 
   // Form states
   const [title, setTitle] = useState("");
@@ -139,6 +139,14 @@ export default function SubmitDealPage() {
       }, 1200);
     }, 700);
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-zinc-950 text-zinc-100 flex items-center justify-center">
+        <p className="text-xs text-zinc-400">Memeriksa status sesi warga...</p>
+      </div>
+    );
+  }
 
   if (!user) {
     return null;

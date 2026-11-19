@@ -1,10 +1,12 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { X, Lock, ShieldCheck, Tag } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 
 export function AuthModal() {
+  const router = useRouter();
   const { isAuthModalOpen, closeAuthModal, authModalReason, login } = useAuth();
 
   if (!isAuthModalOpen) return null;
@@ -51,14 +53,17 @@ export function AuthModal() {
             </ul>
           </div>
 
-          {/* Tombol Masuk Demo / Akun Cepat */}
+          {/* Tombol Masuk */}
           <div className="mt-5 w-full space-y-2">
             <Button
               variant="primary"
               className="w-full text-xs font-semibold py-2"
-              onClick={() => login()}
+              onClick={() => {
+                closeAuthModal();
+                router.push("/login");
+              }}
             >
-              Masuk Sekarang (Simulasi)
+              Masuk ke Akun
             </Button>
 
             <Button

@@ -44,6 +44,12 @@ async function main() {
       avatarUrl: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80",
     },
     {
+      email: "budi.santoso@gmail.com",
+      name: "Budi Santoso",
+      preference: UserPreference.WORKER,
+      avatarUrl: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80",
+    },
+    {
       email: "siti@example.com",
       name: "Siti Rahma",
       preference: UserPreference.HOUSEWIFE,
@@ -75,7 +81,8 @@ async function main() {
     },
   ];
 
-  const dummyPasswordHash = "$2b$10$EpRnTzVlqHNP0.fUbXUwSOyuiXe/QLSUG6xNekdHgTGmrpHEfI.C2"; // dummy hash
+  // Valid bcrypt hash for "demo123"
+  const dummyPasswordHash = "$2b$10$xYHRWs7pb3M/L03uGfmJx.nSE5koaocE6t/oMU7t4.assVIjqHy6G";
   const users: Record<string, { id: string; name: string }> = {};
 
   for (const u of usersData) {

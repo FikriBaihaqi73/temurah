@@ -1,89 +1,144 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import {
+  loginAction,
+  registerAction,
+  logoutAction,
+  getCurrentUserAction,
+  type SafeUser,
+} from "@/actions/auth";
+import type { UserRole } from "@/validations/auth";
 
-export type UserRole = "Mahasiswa" | "Pekerja / Karyawan" | "Ibu Rumah Tangga" | "Pemilik UMKM / Usaha" | "Pencari Diskon Umum";
+export type { UserRole };
 
-export type User = {
-  id: string;
-  name: string;
-  email: string;
-  role: UserRole;
-  avatar: string;
-  badge: string;
-};
+export type User = SafeUser;
 
 interface AuthContextType {
   user: User | null;
+  isLoading: boolean;
   isAuthModalOpen: boolean;
   authModalReason: string;
-  login: (email?: string, password?: string) => boolean;
-  register: (data: { name: string; email: string; password?: string; role: UserRole }) => boolean;
-  logout: () => void;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  register: (data: {
+    name: string;
+    email: string;
+    password: string;
+    confirmPassword: string;
+    role: UserRole;
+  }) => Promise<{ success: boolean; error?: string }>;
+  logout: () => Promise<void>;
   openAuthModal: (reason?: string) => void;
   closeAuthModal: () => void;
   requireAuth: (action: () => void, reason?: string) => void;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalReason, setAuthModalReason] = useState("Masuk untuk melanjutkan.");
   const router = useRouter();
 
-  // Muat status user dari localStorage jika ada
-  useEffect(() => {
+  const refreshUser = useCallback(async () => {
     try {
-      const stored = localStorage.getItem("temurah_user");
-      if (stored) {
-        setUser(JSON.parse(stored));
-      }
-    } catch (e) {
-      console.error(e);
+      const currentUser = await getCurrentUserAction();
+      setUser(currentUser);
+    } catch (err) {
+      console.error("[refreshUser error]:", err);
+      setUser(null);
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
-  const login = (email?: string, password?: string) => {
-    const defaultUser: User = {
-      id: "u-1",
-      name: email ? email.split("@")[0] : "Budi Santoso",
-      email: email || "budi@example.com",
-      role: "Pekerja / Karyawan",
-      avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80",
-      badge: "Warga Aktif",
+  useEffect(() => {
+    let ignore = false;
+    async function initSession() {
+      try {
+        const currentUser = await getCurrentUserAction();
+        if (!ignore) {
+          setUser(currentUser);
+        }
+      } catch (err) {
+        console.error("[initSession error]:", err);
+        if (!ignore) {
+          setUser(null);
+        }
+      } finally {
+        if (!ignore) {
+          setIsLoading(false);
+        }
+      }
+    }
+    initSession();
+    return () => {
+      ignore = true;
     };
-    setUser(defaultUser);
-    localStorage.setItem("temurah_user", JSON.stringify(defaultUser));
-    setIsAuthModalOpen(false);
-    return true;
+  }, []);
+
+  const login = async (email: string, password: string) => {
+    setIsLoading(true);
+    try {
+      const result = await loginAction({ email, password });
+      if (result.success) {
+        setUser(result.user);
+        setIsAuthModalOpen(false);
+        return { success: true };
+      }
+      return { success: false, error: result.error };
+    } catch (err) {
+      console.error("[login error]:", err);
+      return { success: false, error: "Gagal masuk ke akun. Silakan coba lagi." };
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const register = (data: { name: string; email: string; password?: string; role: UserRole }) => {
-    const newUser: User = {
-      id: `u-${Date.now()}`,
-      name: data.name,
-      email: data.email,
-      role: data.role,
-      avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80",
-      badge: `${data.role} 🌟`,
-    };
-    setUser(newUser);
-    localStorage.setItem("temurah_user", JSON.stringify(newUser));
-    setIsAuthModalOpen(false);
-    return true;
+  const register = async (data: {
+    name: string;
+    email: string;
+    password: string;
+    confirmPassword: string;
+    role: UserRole;
+  }) => {
+    setIsLoading(true);
+    try {
+      const result = await registerAction(data);
+      if (result.success) {
+        setUser(result.user);
+        setIsAuthModalOpen(false);
+        return { success: true };
+      }
+      return { success: false, error: result.error };
+    } catch (err) {
+      console.error("[register error]:", err);
+      return { success: false, error: "Gagal mendaftarkan akun. Silakan coba lagi." };
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem("temurah_user");
+  const logout = async () => {
+    setIsLoading(true);
+    try {
+      await logoutAction();
+      setUser(null);
+      router.refresh();
+    } catch (err) {
+      console.error("[logout error]:", err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const openAuthModal = (reason = "Masuk untuk melanjutkan.") => {
-    // Arahkan langsung ke halaman /login (mobile & desktop first)
-    router.push("/login");
+    setAuthModalReason(reason);
+    router.push(`/login?reason=${encodeURIComponent(reason)}`);
   };
 
   const closeAuthModal = () => {
@@ -102,6 +157,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         user,
+        isLoading,
         isAuthModalOpen,
         authModalReason,
         login,
@@ -110,6 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         openAuthModal,
         closeAuthModal,
         requireAuth,
+        refreshUser,
       }}
     >
       {children}

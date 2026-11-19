@@ -10,8 +10,7 @@ import {
   Lock, 
   AlertCircle, 
   Sparkles,
-  Flame,
-  ShieldCheck
+  Flame
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +24,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -35,11 +34,15 @@ export default function LoginPage() {
     }
 
     setIsLoading(true);
-    setTimeout(() => {
-      login(email, password);
-      setIsLoading(false);
+    const result = await login(email, password);
+    setIsLoading(false);
+
+    if (result.success) {
       router.push("/");
-    }, 350);
+      router.refresh();
+    } else {
+      setError(result.error || "Gagal masuk ke akun. Periksa kembali email dan kata sandi Anda.");
+    }
   };
 
   return (
@@ -251,14 +254,23 @@ export default function LoginPage() {
 
           <button
             type="button"
-            onClick={() => {
-              login("budi.santoso@gmail.com", "demo123");
-              router.push("/");
+            disabled={isLoading}
+            onClick={async () => {
+              setIsLoading(true);
+              setError("");
+              const result = await login("budi.santoso@gmail.com", "demo123");
+              setIsLoading(false);
+              if (result.success) {
+                router.push("/");
+                router.refresh();
+              } else {
+                setError(result.error || "Gagal masuk mode evaluasi.");
+              }
             }}
             className="flex items-center justify-center gap-2 w-full rounded-lg border border-zinc-800 bg-zinc-900/60 p-2.5 text-xs font-semibold text-zinc-200 hover:bg-zinc-800/80 hover:border-zinc-700 transition-all cursor-pointer"
           >
             <Sparkles className="h-3.5 w-3.5 text-amber-400" />
-            <span>Masuk 1-Click (Akun Demo Juri / Penilai)</span>
+            <span>{isLoading ? "Menghubungkan Akun..." : "Masuk 1-Click (Akun Demo Juri / Penilai)"}</span>
           </button>
 
           {/* CTA DAFTAR JELAS DI BAWAH TOMBOL AKSI */}
