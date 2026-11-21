@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { MapLocationModal } from "@/components/ui/map-location-modal";
 import { useAuth } from "@/lib/auth-context";
 import { formatRupiah, cn } from "@/lib/utils";
+import { createPromotionAction } from "@/actions/promo";
 
 const CATEGORIES = [
   "Kebutuhan Pokok",
@@ -68,9 +69,10 @@ export default function SubmitDealPage() {
   const [stockCondition, setStockCondition] = useState("Stok Masih Banyak");
 
   useEffect(() => {
-    // Set default tanggal hari ini saat komponen dimount di client
     const today = new Date().toISOString().split("T")[0];
-    setExpiryDate(today);
+    queueMicrotask(() => {
+      setExpiryDate(today);
+    });
   }, []);
 
   const [notes, setNotes] = useState("");
@@ -105,7 +107,7 @@ export default function SubmitDealPage() {
     setImagePreview(url);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -131,13 +133,39 @@ export default function SubmitDealPage() {
     }
 
     setIsSubmitting(true);
-    setTimeout(() => {
+    try {
+      const result = await createPromotionAction({
+        title: title.trim(),
+        category,
+        storeType,
+        storeName: storeName.trim(),
+        address: address.trim() || storeName.trim(),
+        lat: selectedCoords?.lat ?? -7.7829,
+        lng: selectedCoords?.lng ?? 110.3671,
+        originalPrice: origNum,
+        promoPrice: promoNum,
+        expiryDate,
+        expiryTime,
+        stockCondition,
+        notes: notes.trim(),
+        imageUrl: imagePreview,
+      });
+
+      if (result.success) {
+        setIsSubmitting(false);
+        setIsSuccess(true);
+        setTimeout(() => {
+          router.push("/");
+          router.refresh();
+        }, 1000);
+      } else {
+        setIsSubmitting(false);
+        setError(result.error || "Gagal mengunggah promo. Silakan coba lagi.");
+      }
+    } catch {
       setIsSubmitting(false);
-      setIsSuccess(true);
-      setTimeout(() => {
-        router.push("/");
-      }, 1200);
-    }, 700);
+      setError("Terjadi kesalahan teknis saat mengirim data promo.");
+    }
   };
 
   if (isLoading) {

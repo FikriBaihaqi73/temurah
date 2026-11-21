@@ -12,38 +12,42 @@ import {
   Send,
   Navigation,
   ThumbsUp,
-  ThumbsDown
+  ThumbsDown,
+  Trash2
 } from "lucide-react";
 import { PromoPost, PromoComment } from "@/lib/mock-data";
 import { formatRupiah, cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { OpenStreetMapViewer } from "@/components/ui/open-street-map";
 import { useAuth } from "@/lib/auth-context";
+import { deletePromotionAction } from "@/actions/promo";
 
 interface PromoDetailSheetProps {
   promo: PromoPost | null;
   onClose: () => void;
   onConfirm: (promoId: string) => void;
+  onDelete?: (promoId: string) => void;
 }
 
-export function PromoDetailSheet({ promo, onClose, onConfirm }: PromoDetailSheetProps) {
+export function PromoDetailSheet({ promo, onClose, onConfirm, onDelete }: PromoDetailSheetProps) {
   const { user, requireAuth } = useAuth();
   const [commentText, setCommentText] = useState("");
   const [comments, setComments] = useState<PromoComment[]>(promo?.comments || []);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   // Status voting user di detail
   const [userVote, setUserVote] = useState<"valid" | "invalid" | null>(null);
   const [validCount, setValidCount] = useState(promo?.confirmedCount || 0);
   const [invalidCount, setInvalidCount] = useState(promo?.expiredReportsCount || 0);
+  const [prevPromoId, setPrevPromoId] = useState(promo?.id);
 
-  useEffect(() => {
-    if (promo) {
-      setComments(promo.comments || []);
-      setValidCount(promo.confirmedCount);
-      setInvalidCount(promo.expiredReportsCount || 0);
-      setUserVote(null);
-    }
-  }, [promo]);
+  if (promo && promo.id !== prevPromoId) {
+    setPrevPromoId(promo.id);
+    setComments(promo.comments || []);
+    setValidCount(promo.confirmedCount);
+    setInvalidCount(promo.expiredReportsCount || 0);
+    setUserVote(null);
+  }
 
   useEffect(() => {
     if (promo) {
@@ -120,6 +124,27 @@ export function PromoDetailSheet({ promo, onClose, onConfirm }: PromoDetailSheet
     }, "Masuk untuk menulis komentar update stok.");
   };
 
+  const handleDeletePromo = async () => {
+    if (!promo) return;
+    if (!window.confirm("Apakah Anda yakin ingin menghapus temuan promo ini?")) {
+      return;
+    }
+    setIsDeleting(true);
+    try {
+      const result = await deletePromotionAction(promo.id);
+      if (result.success) {
+        if (onDelete) onDelete(promo.id);
+        onClose();
+      } else {
+        alert(result.error || "Gagal menghapus promosi.");
+      }
+    } catch {
+      alert("Terjadi kendala saat menghapus promosi.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       {/* Backdrop */}
@@ -147,13 +172,28 @@ export function PromoDetailSheet({ promo, onClose, onConfirm }: PromoDetailSheet
             </span>
           </div>
 
-          <button
-            onClick={onClose}
-            className="flex h-7 w-7 items-center justify-center rounded border border-zinc-200 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800 text-zinc-500"
-            title="Tutup (Esc)"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-1.5">
+            {user && (user.name === promo.contributor.name || user.id === (promo.contributor as { id?: string }).id) && (
+              <button
+                type="button"
+                onClick={handleDeletePromo}
+                disabled={isDeleting}
+                className="flex items-center gap-1 text-[11px] font-medium text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                title="Hapus promo ini"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span>{isDeleting ? "Menghapus..." : "Hapus"}</span>
+              </button>
+            )}
+
+            <button
+              onClick={onClose}
+              className="flex h-7 w-7 items-center justify-center rounded border border-zinc-200 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800 text-zinc-500"
+              title="Tutup (Esc)"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {/* Body Content */}

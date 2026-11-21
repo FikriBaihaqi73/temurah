@@ -14,6 +14,7 @@ import { HeaderNav } from "@/components/HeaderNav";
 import { PromoCard } from "@/components/PromoCard";
 import { PromoDetailSheet } from "@/components/PromoDetailSheet";
 import { MOCK_PROMO_POSTS, PromoPost } from "@/lib/mock-data";
+import { getPromotionsAction } from "@/actions/promo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -34,11 +35,31 @@ export default function LandingPage() {
   const [selectedLocation, setSelectedLocation] = useState("Semua Area");
   const [searchQuery, setSearchQuery] = useState("");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [promos, setPromos] = useState<PromoPost[]>(MOCK_PROMO_POSTS);
   
   // State untuk Detail Sheet Promo Aktif
   const [activeDetailPromo, setActiveDetailPromo] = useState<PromoPost | null>(null);
 
   const filterRef = useRef<HTMLDivElement>(null);
+
+  // Muat promosi dari database server
+  useEffect(() => {
+    let isMounted = true;
+    async function loadLivePromotions() {
+      try {
+        const res = await getPromotionsAction();
+        if (isMounted && res.success && res.data && res.data.length > 0) {
+          setPromos(res.data);
+        }
+      } catch (err) {
+        console.error("Gagal memuat promo live:", err);
+      }
+    }
+    loadLivePromotions();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -51,7 +72,7 @@ export default function LandingPage() {
   }, []);
 
   // Filter dasar
-  const baseFiltered = MOCK_PROMO_POSTS.filter((post) => {
+  const baseFiltered = promos.filter((post) => {
     const matchesCategory = selectedCategory === "all" || post.category === selectedCategory;
     const matchesStore = selectedStoreType === "Semua Toko" || post.storeType === selectedStoreType;
     const matchesSearch = 
@@ -289,6 +310,10 @@ export default function LandingPage() {
         onClose={() => setActiveDetailPromo(null)}
         onConfirm={(id) => {
           console.log("Confirmed deal:", id);
+        }}
+        onDelete={(id) => {
+          setPromos((prev) => prev.filter((p) => p.id !== id));
+          setActiveDetailPromo(null);
         }}
       />
 
