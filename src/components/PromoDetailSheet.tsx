@@ -21,6 +21,11 @@ import { Button } from "@/components/ui/button";
 import { OpenStreetMapViewer } from "@/components/ui/open-street-map";
 import { useAuth } from "@/lib/auth-context";
 import { deletePromotionAction } from "@/actions/promo";
+import {
+  toggleValidationAction,
+  addCommentAction,
+  deleteCommentAction,
+} from "@/actions/community";
 
 interface PromoDetailSheetProps {
   promo: PromoPost | null;
@@ -36,7 +41,7 @@ export function PromoDetailSheet({ promo, onClose, onConfirm, onDelete }: PromoD
   const [isDeleting, setIsDeleting] = useState(false);
   
   // Status voting user di detail
-  const [userVote, setUserVote] = useState<"valid" | "invalid" | null>(null);
+  const [userVote, setUserVote] = useState<"valid" | "invalid" | null>(promo?.userVote ?? null);
   const [validCount, setValidCount] = useState(promo?.confirmedCount || 0);
   const [invalidCount, setInvalidCount] = useState(promo?.expiredReportsCount || 0);
   const [prevPromoId, setPrevPromoId] = useState(promo?.id);
@@ -46,7 +51,7 @@ export function PromoDetailSheet({ promo, onClose, onConfirm, onDelete }: PromoD
     setComments(promo.comments || []);
     setValidCount(promo.confirmedCount);
     setInvalidCount(promo.expiredReportsCount || 0);
-    setUserVote(null);
+    setUserVote(promo.userVote ?? null);
   }
 
   useEffect(() => {
@@ -74,54 +79,126 @@ export function PromoDetailSheet({ promo, onClose, onConfirm, onDelete }: PromoD
   };
 
   const handleValidVote = () => {
-    requireAuth(() => {
+    if (!promo) return;
+    requireAuth(async () => {
+      const prevVote = userVote;
+      const prevValid = validCount;
+      const prevInvalid = invalidCount;
+
       if (userVote === "valid") {
         setUserVote(null);
-        setValidCount((c) => c - 1);
+        setValidCount((c) => Math.max(0, c - 1));
       } else {
         if (userVote === "invalid") {
-          setInvalidCount((c) => c - 1);
+          setInvalidCount((c) => Math.max(0, c - 1));
         }
         setUserVote("valid");
         setValidCount((c) => c + 1);
         onConfirm(promo.id);
       }
+
+      try {
+        const res = await toggleValidationAction({
+          promotionId: promo.id,
+          validationType: "VALID",
+        });
+        if (res.success) {
+          setUserVote(res.data.userVote);
+          setValidCount(res.data.validCount);
+          setInvalidCount(res.data.invalidCount);
+        } else {
+          setUserVote(prevVote);
+          setValidCount(prevValid);
+          setInvalidCount(prevInvalid);
+        }
+      } catch (err) {
+        console.error("Gagal memvalidasi promo:", err);
+        setUserVote(prevVote);
+        setValidCount(prevValid);
+        setInvalidCount(prevInvalid);
+      }
     }, "Masuk untuk mengonfirmasi bahwa promo ini masih tersedia di lokasi.");
   };
 
   const handleInvalidVote = () => {
-    requireAuth(() => {
+    if (!promo) return;
+    requireAuth(async () => {
+      const prevVote = userVote;
+      const prevValid = validCount;
+      const prevInvalid = invalidCount;
+
       if (userVote === "invalid") {
         setUserVote(null);
-        setInvalidCount((c) => c - 1);
+        setInvalidCount((c) => Math.max(0, c - 1));
       } else {
         if (userVote === "valid") {
-          setValidCount((c) => c - 1);
+          setValidCount((c) => Math.max(0, c - 1));
         }
         setUserVote("invalid");
         setInvalidCount((c) => c + 1);
       }
+
+      try {
+        const res = await toggleValidationAction({
+          promotionId: promo.id,
+          validationType: "INVALID",
+        });
+        if (res.success) {
+          setUserVote(res.data.userVote);
+          setValidCount(res.data.validCount);
+          setInvalidCount(res.data.invalidCount);
+        } else {
+          setUserVote(prevVote);
+          setValidCount(prevValid);
+          setInvalidCount(prevInvalid);
+        }
+      } catch (err) {
+        console.error("Gagal melaporkan ketidakvalidan promo:", err);
+        setUserVote(prevVote);
+        setValidCount(prevValid);
+        setInvalidCount(prevInvalid);
+      }
     }, "Masuk untuk melaporkan promo yang tidak sesuai atau bohong.");
   };
 
-  const handleAddComment = (e: React.FormEvent) => {
+  const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!commentText.trim()) return;
+    const trimmed = commentText.trim();
+    if (!trimmed || !promo) return;
 
-    requireAuth(() => {
-      const newComment: PromoComment = {
-        id: `c-${Date.now()}`,
-        userName: user?.name || "Saya",
-        userAvatar: user?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80",
-        badge: user?.badge || "Warga",
-        content: commentText.trim(),
-        timeAgo: "Baru saja",
-        isVerifiedBuyer: true,
-      };
+    requireAuth(async () => {
+      try {
+        const res = await addCommentAction({
+          promotionId: promo.id,
+          content: trimmed,
+        });
 
-      setComments([newComment, ...comments]);
-      setCommentText("");
+        if (res.success) {
+          setComments((prev) => [res.data, ...prev]);
+          setCommentText("");
+        } else {
+          alert(res.error || "Gagal menambahkan komentar.");
+        }
+      } catch (err) {
+        console.error("Gagal menambahkan komentar:", err);
+        alert("Terjadi kendala saat mengirim komentar.");
+      }
     }, "Masuk untuk menulis komentar update stok.");
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!window.confirm("Hapus komentar ini?")) return;
+    try {
+      const res = await deleteCommentAction({ commentId });
+      if (res.success) {
+        setComments((prev) => prev.filter((c) => c.id !== commentId));
+      } else {
+        alert(res.error || "Gagal menghapus komentar.");
+      }
+    } catch (err) {
+      console.error("Gagal menghapus komentar:", err);
+      alert("Terjadi kendala saat menghapus komentar.");
+    }
   };
 
   const handleDeletePromo = async () => {
@@ -364,7 +441,19 @@ export function PromoDetailSheet({ promo, onClose, onConfirm, onDelete }: PromoD
                         {c.badge}
                       </span>
                     </div>
-                    <span className="text-[10px] text-zinc-400">{c.timeAgo}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-zinc-400">{c.timeAgo}</span>
+                      {user && user.name === c.userName && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteComment(c.id)}
+                          className="text-zinc-400 hover:text-red-500 transition-colors p-0.5"
+                          title="Hapus komentar saya"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <p className="text-zinc-700 dark:text-zinc-300 text-[11px] leading-relaxed">
                     {c.content}

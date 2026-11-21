@@ -12,6 +12,7 @@ import {
 import { PromoPost } from "@/lib/mock-data";
 import { formatRupiah, cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
+import { toggleValidationAction, toggleBookmarkAction } from "@/actions/community";
 
 interface PromoCardProps {
   promo: PromoPost;
@@ -21,25 +22,59 @@ interface PromoCardProps {
 export function PromoCard({ promo, onSelect }: PromoCardProps) {
   const { requireAuth } = useAuth();
   
-  // Status voting user
-  const [userVote, setUserVote] = useState<"valid" | "invalid" | null>(null);
+  // Status voting user & bookmark
+  const [userVote, setUserVote] = useState<"valid" | "invalid" | null>(promo.userVote ?? null);
   const [validCount, setValidCount] = useState(promo.confirmedCount);
   const [invalidCount, setInvalidCount] = useState(promo.expiredReportsCount || 0);
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState(promo.isBookmarked ?? false);
+  const [prevPromoId, setPrevPromoId] = useState(promo.id);
+
+  if (promo.id !== prevPromoId) {
+    setPrevPromoId(promo.id);
+    setUserVote(promo.userVote ?? null);
+    setValidCount(promo.confirmedCount);
+    setInvalidCount(promo.expiredReportsCount || 0);
+    setSaved(promo.isBookmarked ?? false);
+  }
 
   // Toggle Valid
   const toggleValid = (e: React.MouseEvent) => {
     e.stopPropagation();
-    requireAuth(() => {
+    requireAuth(async () => {
+      const prevVote = userVote;
+      const prevValid = validCount;
+      const prevInvalid = invalidCount;
+
       if (userVote === "valid") {
         setUserVote(null);
-        setValidCount((c) => c - 1);
+        setValidCount((c) => Math.max(0, c - 1));
       } else {
         if (userVote === "invalid") {
-          setInvalidCount((c) => c - 1);
+          setInvalidCount((c) => Math.max(0, c - 1));
         }
         setUserVote("valid");
         setValidCount((c) => c + 1);
+      }
+
+      try {
+        const res = await toggleValidationAction({
+          promotionId: promo.id,
+          validationType: "VALID",
+        });
+        if (res.success) {
+          setUserVote(res.data.userVote);
+          setValidCount(res.data.validCount);
+          setInvalidCount(res.data.invalidCount);
+        } else {
+          setUserVote(prevVote);
+          setValidCount(prevValid);
+          setInvalidCount(prevInvalid);
+        }
+      } catch (err) {
+        console.error("Gagal mengirim validasi:", err);
+        setUserVote(prevVote);
+        setValidCount(prevValid);
+        setInvalidCount(prevInvalid);
       }
     }, "Masuk untuk memverifikasi keakuratan promo ini.");
   };
@@ -47,24 +82,64 @@ export function PromoCard({ promo, onSelect }: PromoCardProps) {
   // Toggle Tidak Valid
   const toggleInvalid = (e: React.MouseEvent) => {
     e.stopPropagation();
-    requireAuth(() => {
+    requireAuth(async () => {
+      const prevVote = userVote;
+      const prevValid = validCount;
+      const prevInvalid = invalidCount;
+
       if (userVote === "invalid") {
         setUserVote(null);
-        setInvalidCount((c) => c - 1);
+        setInvalidCount((c) => Math.max(0, c - 1));
       } else {
         if (userVote === "valid") {
-          setValidCount((c) => c - 1);
+          setValidCount((c) => Math.max(0, c - 1));
         }
         setUserVote("invalid");
         setInvalidCount((c) => c + 1);
+      }
+
+      try {
+        const res = await toggleValidationAction({
+          promotionId: promo.id,
+          validationType: "INVALID",
+        });
+        if (res.success) {
+          setUserVote(res.data.userVote);
+          setValidCount(res.data.validCount);
+          setInvalidCount(res.data.invalidCount);
+        } else {
+          setUserVote(prevVote);
+          setValidCount(prevValid);
+          setInvalidCount(prevInvalid);
+        }
+      } catch (err) {
+        console.error("Gagal melaporkan ketidakvalidan promo:", err);
+        setUserVote(prevVote);
+        setValidCount(prevValid);
+        setInvalidCount(prevInvalid);
       }
     }, "Masuk untuk melaporkan promo yang tidak valid / tidak sesuai.");
   };
 
   const toggleBookmark = (e: React.MouseEvent) => {
     e.stopPropagation();
-    requireAuth(() => {
-      setSaved(!saved);
+    requireAuth(async () => {
+      const prevSaved = saved;
+      setSaved(!prevSaved);
+
+      try {
+        const res = await toggleBookmarkAction({
+          promotionId: promo.id,
+        });
+        if (res.success) {
+          setSaved(res.data.isBookmarked);
+        } else {
+          setSaved(prevSaved);
+        }
+      } catch (err) {
+        console.error("Gagal memperbarui bookmark:", err);
+        setSaved(prevSaved);
+      }
     }, "Masuk untuk menyimpan promo ke daftar favorit Anda.");
   };
 

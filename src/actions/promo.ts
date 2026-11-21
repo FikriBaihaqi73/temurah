@@ -15,6 +15,10 @@ import {
 import { preferenceToRoleAndBadge } from "@/lib/auth-session";
 import type { PromoPost, PromoComment } from "@/lib/mock-data";
 import { PromotionStatus } from "@/generated/prisma/enums";
+import {
+  transformPromotionToPromoPost,
+  type PromotionWithRelations,
+} from "@/lib/promo-helpers";
 
 // Pusat koordinat standar area Yogyakarta / Sleman untuk hitung jarak
 const DEFAULT_USER_LAT = -7.7829;
@@ -257,6 +261,8 @@ export async function getPromotionsAction(filters?: {
       ];
     }
 
+    const currentUser = await getCurrentUserAction().catch(() => null);
+
     // Query ke PostgreSQL via Prisma
     const promotions = await prisma.promotion.findMany({
       where: whereClause,
@@ -273,7 +279,13 @@ export async function getPromotionsAction(filters?: {
         },
         validations: {
           select: {
+            userId: true,
             validationType: true,
+          },
+        },
+        bookmarks: {
+          select: {
+            userId: true,
           },
         },
         comments: {
@@ -299,78 +311,12 @@ export async function getPromotionsAction(filters?: {
       orderBy: { createdAt: "desc" },
     });
 
-    const defaultAvatar =
-      "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80";
-
-    // Transform ke struktur PromoPost yang diharapkan Frontend
-    const mappedPromos: PromoPost[] = promotions.map((promo) => {
-      const origPrice = promo.normalPrice;
-      const promoPrice = promo.discountPrice;
-      const discountPercentage =
-        origPrice > promoPrice && origPrice > 0
-          ? Math.round(((origPrice - promoPrice) / origPrice) * 100)
-          : 0;
-
-      const { badge: contributorBadge } = preferenceToRoleAndBadge(
-        promo.createdByUser.preference
-      );
-
-      const confirmedCount = promo.validations.filter(
-        (v) => v.validationType === "VALID"
-      ).length;
-      const expiredReportsCount = promo.validations.filter(
-        (v) => v.validationType === "INVALID" || v.validationType === "EXPIRED"
-      ).length;
-
-      const comments: PromoComment[] = promo.comments.map((c) => {
-        const { badge: commentBadge } = preferenceToRoleAndBadge(c.user.preference);
-        return {
-          id: c.id,
-          userName: c.user.name,
-          userAvatar: c.user.avatarUrl || defaultAvatar,
-          badge: commentBadge,
-          content: c.content,
-          timeAgo: formatTimeAgo(c.createdAt),
-          isVerifiedBuyer: true,
-        };
-      });
-
-      const distance = calculateDistance(
-        DEFAULT_USER_LAT,
-        DEFAULT_USER_LNG,
-        promo.store.latitude,
-        promo.store.longitude
-      );
-
-      return {
-        id: promo.id,
-        title: promo.productName,
-        category: promo.category.name,
-        storeName: promo.store.name,
-        storeType: mapStoreTypeToFrontend(promo.store.storeType),
-        location: promo.store.address.split(",")[0] || promo.store.name,
-        address: promo.store.address,
-        lat: promo.store.latitude,
-        lng: promo.store.longitude,
-        distance,
-        originalPrice: origPrice,
-        promoPrice,
-        discountPercentage,
-        validUntil: formatValidUntil(promo.endsAt),
-        notes: promo.description || "",
-        imageUrl: promo.imageUrl,
-        contributor: {
-          name: promo.createdByUser.name,
-          avatar: promo.createdByUser.avatarUrl || defaultAvatar,
-          badge: contributorBadge,
-        },
-        confirmedCount,
-        expiredReportsCount,
-        commentsCount: promo._count.comments,
-        comments,
-        isHot: confirmedCount >= 10 || discountPercentage >= 25,
-      };
-    });
+    const mappedPromos: PromoPost[] = promotions.map((promo) =>
+      transformPromotionToPromoPost(
+        promo as unknown as PromotionWithRelations,
+        currentUser?.id
+      )
+    );
 
     return {
       success: true,
@@ -392,6 +338,8 @@ export async function getPromotionDetailAction(
   id: string
 ): Promise<PromoActionResult<PromoPost>> {
   try {
+    const currentUser = await getCurrentUserAction().catch(() => null);
+
     const promo = await prisma.promotion.findUnique({
       where: { id },
       include: {
@@ -407,7 +355,13 @@ export async function getPromotionDetailAction(
         },
         validations: {
           select: {
+            userId: true,
             validationType: true,
+          },
+        },
+        bookmarks: {
+          select: {
+            userId: true,
           },
         },
         comments: {
@@ -438,78 +392,12 @@ export async function getPromotionDetailAction(
       };
     }
 
-    const defaultAvatar =
-      "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80";
-    const origPrice = promo.normalPrice;
-    const promoPrice = promo.discountPrice;
-    const discountPercentage =
-      origPrice > promoPrice && origPrice > 0
-        ? Math.round(((origPrice - promoPrice) / origPrice) * 100)
-        : 0;
-
-    const { badge: contributorBadge } = preferenceToRoleAndBadge(
-      promo.createdByUser.preference
-    );
-
-    const confirmedCount = promo.validations.filter(
-      (v) => v.validationType === "VALID"
-    ).length;
-    const expiredReportsCount = promo.validations.filter(
-      (v) => v.validationType === "INVALID" || v.validationType === "EXPIRED"
-    ).length;
-
-    const comments: PromoComment[] = promo.comments.map((c) => {
-      const { badge: commentBadge } = preferenceToRoleAndBadge(c.user.preference);
-      return {
-        id: c.id,
-        userName: c.user.name,
-        userAvatar: c.user.avatarUrl || defaultAvatar,
-        badge: commentBadge,
-        content: c.content,
-        timeAgo: formatTimeAgo(c.createdAt),
-        isVerifiedBuyer: true,
-      };
-    });
-
-    const distance = calculateDistance(
-      DEFAULT_USER_LAT,
-      DEFAULT_USER_LNG,
-      promo.store.latitude,
-      promo.store.longitude
-    );
-
-    const promoPost: PromoPost = {
-      id: promo.id,
-      title: promo.productName,
-      category: promo.category.name,
-      storeName: promo.store.name,
-      storeType: mapStoreTypeToFrontend(promo.store.storeType),
-      location: promo.store.address.split(",")[0] || promo.store.name,
-      address: promo.store.address,
-      lat: promo.store.latitude,
-      lng: promo.store.longitude,
-      distance,
-      originalPrice: origPrice,
-      promoPrice,
-      discountPercentage,
-      validUntil: formatValidUntil(promo.endsAt),
-      notes: promo.description || "",
-      imageUrl: promo.imageUrl,
-      contributor: {
-        name: promo.createdByUser.name,
-        avatar: promo.createdByUser.avatarUrl || defaultAvatar,
-        badge: contributorBadge,
-      },
-      confirmedCount,
-      expiredReportsCount,
-      commentsCount: promo._count.comments,
-      comments,
-      isHot: confirmedCount >= 10 || discountPercentage >= 25,
-    };
-
     return {
       success: true,
-      data: promoPost,
+      data: transformPromotionToPromoPost(
+        promo as unknown as PromotionWithRelations,
+        currentUser?.id
+      ),
     };
   } catch (error) {
     console.error("[getPromotionDetailAction error]:", error);

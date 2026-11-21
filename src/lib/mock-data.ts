@@ -35,6 +35,8 @@ export type PromoPost = {
   commentsCount: number;
   comments?: PromoComment[];
   isHot?: boolean;
+  userVote?: "valid" | "invalid" | null;
+  isBookmarked?: boolean;
 };
 
 export const MOCK_PROMO_POSTS: PromoPost[] = [

@@ -1,0 +1,230 @@
+import type { PromoPost, PromoComment } from "@/lib/mock-data";
+import { preferenceToRoleAndBadge } from "@/lib/auth-session";
+import { mapStoreTypeToFrontend } from "@/validations/promo";
+import { StoreType, UserPreference } from "@/generated/prisma/enums";
+
+// Pusat koordinat standar area Yogyakarta / Sleman untuk hitung jarak
+export const DEFAULT_USER_LAT = -7.7829;
+export const DEFAULT_USER_LNG = 110.3671;
+
+/**
+ * Helper: Hitung jarak Haversine antara dua koordinat geolokasi.
+ */
+export function calculateDistance(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): string {
+  const R = 6371; // Radius bumi dalam KM
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const d = R * c;
+
+  if (d < 1) {
+    return `${Math.round(d * 1000)} m`;
+  }
+  return `${d.toFixed(1)} km`;
+}
+
+/**
+ * Helper: Format sisa masa berlaku promo ramah pengguna.
+ */
+export function formatValidUntil(endsAt: Date): string {
+  const now = new Date();
+  const diffMs = endsAt.getTime() - now.getTime();
+  if (diffMs <= 0) return "Sudah berakhir";
+
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffHours / 24);
+
+  const isToday =
+    endsAt.getDate() === now.getDate() &&
+    endsAt.getMonth() === now.getMonth() &&
+    endsAt.getFullYear() === now.getFullYear();
+
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const isTomorrow =
+    endsAt.getDate() === tomorrow.getDate() &&
+    endsAt.getMonth() === tomorrow.getMonth() &&
+    endsAt.getFullYear() === tomorrow.getFullYear();
+
+  const timeStr = endsAt.toLocaleTimeString("id-ID", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  if (isToday) return `Hari ini s/d ${timeStr}`;
+  if (isTomorrow) return `Besok, ${timeStr}`;
+  if (diffDays <= 7) return `${diffDays} Hari lagi`;
+
+  return endsAt.toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+/**
+ * Helper: Format waktu lampau untuk komentar warga.
+ */
+export function formatTimeAgo(date: Date): string {
+  const now = new Date();
+  const diffSec = Math.floor((now.getTime() - date.getTime()) / 1000);
+  if (diffSec < 60) return "Baru saja";
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin} menit lalu`;
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 24) return `${diffHour} jam lalu`;
+  const diffDay = Math.floor(diffHour / 24);
+  if (diffDay < 30) return `${diffDay} hari lalu`;
+  return date.toLocaleDateString("id-ID");
+}
+
+export type PromotionWithRelations = {
+  id: string;
+  productName: string;
+  description: string | null;
+  normalPrice: number;
+  discountPrice: number;
+  imageUrl: string;
+  endsAt: Date;
+  store: {
+    name: string;
+    storeType: StoreType;
+    address: string;
+    latitude: number;
+    longitude: number;
+  };
+  category: {
+    name: string;
+  };
+  createdByUser: {
+    id: string;
+    name: string;
+    avatarUrl: string | null;
+    preference: UserPreference;
+  };
+  validations?: Array<{
+    userId?: string;
+    validationType: string;
+  }>;
+  bookmarks?: Array<{
+    userId?: string;
+  }>;
+  comments?: Array<{
+    id: string;
+    content: string;
+    createdAt: Date;
+    user: {
+      id: string;
+      name: string;
+      avatarUrl: string | null;
+      preference: UserPreference;
+    };
+  }>;
+  _count?: {
+    comments?: number;
+  };
+};
+
+/**
+ * Helper transformasi Model Database Promotion ke Format Frontend PromoPost.
+ */
+export function transformPromotionToPromoPost(
+  promo: PromotionWithRelations,
+  currentUserId?: string | null
+): PromoPost {
+  const origPrice = promo.normalPrice;
+  const promoPrice = promo.discountPrice;
+  const discountPercentage =
+    origPrice > promoPrice && origPrice > 0
+      ? Math.round(((origPrice - promoPrice) / origPrice) * 100)
+      : 0;
+
+  const defaultAvatar =
+    "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80";
+
+  const { badge: contributorBadge } = preferenceToRoleAndBadge(
+    promo.createdByUser.preference
+  );
+
+  const confirmedCount = (promo.validations || []).filter(
+    (v) => v.validationType === "VALID"
+  ).length;
+  const expiredReportsCount = (promo.validations || []).filter(
+    (v) => v.validationType === "INVALID" || v.validationType === "EXPIRED"
+  ).length;
+
+  let userVote: "valid" | "invalid" | null = null;
+  if (currentUserId && promo.validations) {
+    const userVal = promo.validations.find((v) => v.userId === currentUserId);
+    if (userVal) {
+      userVote = userVal.validationType === "VALID" ? "valid" : "invalid";
+    }
+  }
+
+  let isBookmarked = false;
+  if (currentUserId && promo.bookmarks) {
+    isBookmarked = promo.bookmarks.some((b) => b.userId === currentUserId);
+  }
+
+  const comments: PromoComment[] = (promo.comments || []).map((c) => {
+    const { badge: commentBadge } = preferenceToRoleAndBadge(c.user.preference);
+    return {
+      id: c.id,
+      userName: c.user.name,
+      userAvatar: c.user.avatarUrl || defaultAvatar,
+      badge: commentBadge,
+      content: c.content,
+      timeAgo: formatTimeAgo(c.createdAt),
+      isVerifiedBuyer: true,
+    };
+  });
+
+  const distance = calculateDistance(
+    DEFAULT_USER_LAT,
+    DEFAULT_USER_LNG,
+    promo.store.latitude,
+    promo.store.longitude
+  );
+
+  return {
+    id: promo.id,
+    title: promo.productName,
+    category: promo.category.name,
+    storeName: promo.store.name,
+    storeType: mapStoreTypeToFrontend(promo.store.storeType),
+    location: promo.store.address.split(",")[0] || promo.store.name,
+    address: promo.store.address,
+    lat: promo.store.latitude,
+    lng: promo.store.longitude,
+    distance,
+    originalPrice: origPrice,
+    promoPrice,
+    discountPercentage,
+    validUntil: formatValidUntil(promo.endsAt),
+    notes: promo.description || "",
+    imageUrl: promo.imageUrl,
+    contributor: {
+      name: promo.createdByUser.name,
+      avatar: promo.createdByUser.avatarUrl || defaultAvatar,
+      badge: contributorBadge,
+    },
+    confirmedCount,
+    expiredReportsCount,
+    commentsCount: promo._count?.comments ?? comments.length,
+    comments,
+    isHot: confirmedCount >= 10 || discountPercentage >= 25,
+    userVote,
+    isBookmarked,
+  };
+}
