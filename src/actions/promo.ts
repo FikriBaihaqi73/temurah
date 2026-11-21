@@ -226,101 +226,35 @@ export async function createPromotionAction(
   }
 }
 
+import {
+  getDiscoverPromotionsAction,
+} from "@/actions/discovery";
+import {
+  type DiscoveryFilterInput,
+  type PaginationMeta,
+  type DiscoverPromotionsResult,
+} from "@/validations/discovery";
+
+export { getDiscoverPromotionsAction };
+export type { DiscoveryFilterInput, PaginationMeta, DiscoverPromotionsResult };
+
 /**
- * Server Action: Mengambil seluruh daftar promosi untuk katalog warga (Read Promotion).
- * Dapat diakses oleh publik (guest) maupun pengguna terdaftar.
+ * Server Action: Mengambil seluruh daftar promosi untuk katalog warga (Read Promotion & Discovery).
+ * Mendukung pencarian kata kunci, kategori, jenis toko, wilayah, pengurutan, dan pagination.
  */
-export async function getPromotionsAction(filters?: {
-  category?: string;
-  storeType?: string;
-  searchQuery?: string;
-}): Promise<PromoActionResult<PromoPost[]>> {
+export async function getPromotionsAction(
+  filters?: DiscoveryFilterInput
+): Promise<PromoActionResult<PromoPost[]> & { pagination?: PaginationMeta }> {
   try {
-    const whereClause: Record<string, unknown> = {
-      status: { in: [PromotionStatus.ACTIVE, PromotionStatus.VERIFIED] },
-    };
-
-    if (filters?.category && filters.category !== "all") {
-      whereClause.category = {
-        name: { equals: filters.category, mode: "insensitive" },
-      };
+    const discoverResult = await getDiscoverPromotionsAction(filters);
+    if (!discoverResult.success) {
+      return discoverResult;
     }
-
-    if (filters?.storeType && filters.storeType !== "Semua Toko") {
-      whereClause.store = {
-        storeType: mapFrontendToStoreType(filters.storeType),
-      };
-    }
-
-    if (filters?.searchQuery && filters.searchQuery.trim()) {
-      const q = filters.searchQuery.trim();
-      whereClause.OR = [
-        { productName: { contains: q, mode: "insensitive" } },
-        { store: { name: { contains: q, mode: "insensitive" } } },
-        { category: { name: { contains: q, mode: "insensitive" } } },
-      ];
-    }
-
-    const currentUser = await getCurrentUserAction().catch(() => null);
-
-    // Query ke PostgreSQL via Prisma
-    const promotions = await prisma.promotion.findMany({
-      where: whereClause,
-      include: {
-        store: true,
-        category: true,
-        createdByUser: {
-          select: {
-            id: true,
-            name: true,
-            avatarUrl: true,
-            preference: true,
-          },
-        },
-        validations: {
-          select: {
-            userId: true,
-            validationType: true,
-          },
-        },
-        bookmarks: {
-          select: {
-            userId: true,
-          },
-        },
-        comments: {
-          take: 3,
-          orderBy: { createdAt: "desc" },
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                avatarUrl: true,
-                preference: true,
-              },
-            },
-          },
-        },
-        _count: {
-          select: {
-            comments: true,
-          },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    const mappedPromos: PromoPost[] = promotions.map((promo) =>
-      transformPromotionToPromoPost(
-        promo as unknown as PromotionWithRelations,
-        currentUser?.id
-      )
-    );
 
     return {
       success: true,
-      data: mappedPromos,
+      data: discoverResult.data.promotions,
+      pagination: discoverResult.data.pagination,
     };
   } catch (error) {
     console.error("[getPromotionsAction error]:", error);

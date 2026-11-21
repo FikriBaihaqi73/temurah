@@ -8,6 +8,67 @@ export const DEFAULT_USER_LAT = -7.7829;
 export const DEFAULT_USER_LNG = 110.3671;
 
 /**
+ * Helper: Bangun query kondisi wilayah (Area) terhadap kolom alamat toko.
+ * Menghindari false positive pada penulisan alamat DIY (misal: Sleman, D.I. Yogyakarta).
+ */
+export function buildAreaWhereClause(area?: string): Record<string, unknown> | null {
+  if (!area || area === "all" || area === "Semua Area" || area === "All Areas") {
+    return null;
+  }
+
+  const normalized = area.trim().toLowerCase();
+
+  if (normalized.includes("sleman")) {
+    return {
+      address: {
+        contains: "Sleman",
+        mode: "insensitive",
+      },
+    };
+  }
+
+  if (normalized.includes("bantul")) {
+    return {
+      address: {
+        contains: "Bantul",
+        mode: "insensitive",
+      },
+    };
+  }
+
+  if (
+    normalized.includes("kota") ||
+    normalized.includes("yogyakarta") ||
+    normalized.includes("jogja")
+  ) {
+    // Kota Yogyakarta: Mencocokkan toko di Kota Yogyakarta tanpa keliru mencakup Sleman/Bantul/Kulon Progo
+    return {
+      AND: [
+        {
+          OR: [
+            { address: { contains: "Kota", mode: "insensitive" } },
+            { address: { contains: "Yogyakarta", mode: "insensitive" } },
+            { address: { contains: "Jogja", mode: "insensitive" } },
+          ],
+        },
+        { NOT: { address: { contains: "Sleman", mode: "insensitive" } } },
+        { NOT: { address: { contains: "Bantul", mode: "insensitive" } } },
+        { NOT: { address: { contains: "Kulon Progo", mode: "insensitive" } } },
+        { NOT: { address: { contains: "Gunungkidul", mode: "insensitive" } } },
+      ],
+    };
+  }
+
+  // Fallback pencarian fleksibel
+  return {
+    address: {
+      contains: area.trim(),
+      mode: "insensitive",
+    },
+  };
+}
+
+/**
  * Helper: Hitung jarak Haversine antara dua koordinat geolokasi.
  */
 export function calculateDistance(

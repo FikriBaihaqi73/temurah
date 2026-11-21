@@ -42,24 +42,30 @@ export default function LandingPage() {
 
   const filterRef = useRef<HTMLDivElement>(null);
 
-  // Muat promosi dari database server
+  // Muat promosi dari database server berdasarkan filter, pencarian, dan wilayah
   useEffect(() => {
     let isMounted = true;
-    async function loadLivePromotions() {
+    const timer = setTimeout(async () => {
       try {
-        const res = await getPromotionsAction();
-        if (isMounted && res.success && res.data && res.data.length > 0) {
+        const res = await getPromotionsAction({
+          searchQuery,
+          category: selectedCategory,
+          storeType: selectedStoreType,
+          area: selectedLocation,
+        });
+        if (isMounted && res.success && res.data) {
           setPromos(res.data);
         }
       } catch (err) {
         console.error("Gagal memuat promo live:", err);
       }
-    }
-    loadLivePromotions();
+    }, searchQuery ? 250 : 0);
+
     return () => {
       isMounted = false;
+      clearTimeout(timer);
     };
-  }, []);
+  }, [searchQuery, selectedCategory, selectedStoreType, selectedLocation]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -71,38 +77,28 @@ export default function LandingPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Filter dasar
-  const baseFiltered = promos.filter((post) => {
-    const matchesCategory = selectedCategory === "all" || post.category === selectedCategory;
-    const matchesStore = selectedStoreType === "Semua Toko" || post.storeType === selectedStoreType;
-    const matchesSearch = 
-      post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      post.storeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      post.category.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesStore && matchesSearch;
-  });
-
   // Section 1: Promo Terpopuler / Banyak Divalidasi
-  const popularPosts = [...baseFiltered]
+  const popularPosts = [...promos]
     .sort((a, b) => b.confirmedCount - a.confirmedCount)
     .slice(0, 4);
 
   // Section 2: Diskon Terbesar (%)
-  const biggestDiscountPosts = [...baseFiltered]
+  const biggestDiscountPosts = [...promos]
     .sort((a, b) => b.discountPercentage - a.discountPercentage)
     .slice(0, 4);
 
-  // Section 3: Promo Terbaru
-  const latestPosts = [...baseFiltered]
-    .sort((a, b) => b.id.localeCompare(a.id));
+  // Section 3: Promo Terbaru (sudah terurut dari server)
+  const latestPosts = [...promos];
 
   const activeFiltersCount = 
     (selectedCategory !== "all" ? 1 : 0) + 
-    (selectedStoreType !== "Semua Toko" ? 1 : 0);
+    (selectedStoreType !== "Semua Toko" ? 1 : 0) +
+    (selectedLocation !== "Semua Area" ? 1 : 0);
 
   const handleResetFilters = () => {
     setSelectedCategory("all");
     setSelectedStoreType("Semua Toko");
+    setSelectedLocation("Semua Area");
     setSearchQuery("");
   };
 
@@ -122,7 +118,7 @@ export default function LandingPage() {
           <div className="flex items-center gap-1.5 truncate">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
             <span className="truncate">
-              <strong className="text-zinc-900 dark:text-zinc-100 font-semibold">{baseFiltered.length} promo terverifikasi</strong> di sekitarmu
+              <strong className="text-zinc-900 dark:text-zinc-100 font-semibold">{promos.length} promo terverifikasi</strong> di sekitarmu
             </span>
           </div>
 
@@ -221,6 +217,12 @@ export default function LandingPage() {
         {activeFiltersCount > 0 && (
           <div className="flex flex-wrap items-center gap-1 text-[11px] text-zinc-500">
             <span>Filter:</span>
+            {selectedLocation !== "Semua Area" && (
+              <Badge variant="secondary" className="gap-1 rounded-sm text-[10px] py-0 px-1.5">
+                {selectedLocation}
+                <button onClick={() => setSelectedLocation("Semua Area")}>×</button>
+              </Badge>
+            )}
             {selectedCategory !== "all" && (
               <Badge variant="secondary" className="gap-1 rounded-sm text-[10px] py-0 px-1.5">
                 {selectedCategory}
@@ -242,66 +244,88 @@ export default function LandingPage() {
           </div>
         )}
 
-        {/* SECTION 1: Sedang Ramai / Populer */}
-        <section>
-          <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-2 mb-3">
-            <div className="flex items-center gap-1.5">
-              <Flame className="h-4 w-4 text-red-600 fill-red-600" />
-              <h2 className="text-xs sm:text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100 uppercase">
-                Paling Banyak Divalidasi Warga
-              </h2>
-            </div>
-            <span className="text-[11px] text-zinc-400 font-medium">Banyak Bukti</span>
+        {promos.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center border border-dashed border-zinc-200 dark:border-zinc-800 rounded-lg">
+            <SlidersHorizontal className="h-8 w-8 text-zinc-300 dark:text-zinc-600 mb-2" />
+            <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+              Tidak ada promo yang sesuai
+            </h3>
+            <p className="text-xs text-zinc-400 mt-1 max-w-sm">
+              Coba ubah kata kunci pencarian atau sesuaikan filter kategori, toko, dan wilayah.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleResetFilters}
+              className="mt-4 text-xs"
+            >
+              Reset Semua Filter
+            </Button>
           </div>
-
-          <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-none sm:grid sm:grid-cols-3 md:grid-cols-4 sm:overflow-visible sm:pb-0">
-            {popularPosts.map((promo) => (
-              <div key={promo.id} className="w-[145px] sm:w-auto shrink-0 sm:shrink">
-                <PromoCard promo={promo} onSelect={(p) => setActiveDetailPromo(p)} />
+        ) : (
+          <>
+            {/* SECTION 1: Sedang Ramai / Populer */}
+            <section>
+              <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-2 mb-3">
+                <div className="flex items-center gap-1.5">
+                  <Flame className="h-4 w-4 text-red-600 fill-red-600" />
+                  <h2 className="text-xs sm:text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100 uppercase">
+                    Paling Banyak Divalidasi Warga
+                  </h2>
+                </div>
+                <span className="text-[11px] text-zinc-400 font-medium">Banyak Bukti</span>
               </div>
-            ))}
-          </div>
-        </section>
 
-        {/* SECTION 2: Diskon Terbesar */}
-        <section>
-          <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-2 mb-3">
-            <div className="flex items-center gap-1.5">
-              <Percent className="h-4 w-4 text-red-600" />
-              <h2 className="text-xs sm:text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100 uppercase">
-                Potongan Harga Terbesar
-              </h2>
-            </div>
-            <span className="text-[11px] text-zinc-400 font-medium">Hemat s/d 36%</span>
-          </div>
-
-          <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-none sm:grid sm:grid-cols-3 md:grid-cols-4 sm:overflow-visible sm:pb-0">
-            {biggestDiscountPosts.map((promo) => (
-              <div key={promo.id} className="w-[145px] sm:w-auto shrink-0 sm:shrink">
-                <PromoCard promo={promo} onSelect={(p) => setActiveDetailPromo(p)} />
+              <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-none sm:grid sm:grid-cols-3 md:grid-cols-4 sm:overflow-visible sm:pb-0">
+                {popularPosts.map((promo) => (
+                  <div key={promo.id} className="w-[145px] sm:w-auto shrink-0 sm:shrink">
+                    <PromoCard promo={promo} onSelect={(p) => setActiveDetailPromo(p)} />
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </section>
+            </section>
 
-        {/* SECTION 3: Terbaru Diunggah */}
-        <section>
-          <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-2 mb-3">
-            <div className="flex items-center gap-1.5">
-              <Clock className="h-4 w-4 text-zinc-600 dark:text-zinc-400" />
-              <h2 className="text-xs sm:text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100 uppercase">
-                Promo Terbaru Masuk
-              </h2>
-            </div>
-            <span className="text-[11px] text-zinc-400 font-medium">{latestPosts.length} promo</span>
-          </div>
+            {/* SECTION 2: Diskon Terbesar */}
+            <section>
+              <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-2 mb-3">
+                <div className="flex items-center gap-1.5">
+                  <Percent className="h-4 w-4 text-red-600" />
+                  <h2 className="text-xs sm:text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100 uppercase">
+                    Potongan Harga Terbesar
+                  </h2>
+                </div>
+                <span className="text-[11px] text-zinc-400 font-medium">Hemat s/d 36%</span>
+              </div>
 
-          <div className="grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5">
-            {latestPosts.map((promo) => (
-              <PromoCard key={promo.id} promo={promo} onSelect={(p) => setActiveDetailPromo(p)} />
-            ))}
-          </div>
-        </section>
+              <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-none sm:grid sm:grid-cols-3 md:grid-cols-4 sm:overflow-visible sm:pb-0">
+                {biggestDiscountPosts.map((promo) => (
+                  <div key={promo.id} className="w-[145px] sm:w-auto shrink-0 sm:shrink">
+                    <PromoCard promo={promo} onSelect={(p) => setActiveDetailPromo(p)} />
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* SECTION 3: Terbaru Diunggah */}
+            <section>
+              <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-2 mb-3">
+                <div className="flex items-center gap-1.5">
+                  <Clock className="h-4 w-4 text-zinc-600 dark:text-zinc-400" />
+                  <h2 className="text-xs sm:text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100 uppercase">
+                    Promo Terbaru Masuk
+                  </h2>
+                </div>
+                <span className="text-[11px] text-zinc-400 font-medium">{latestPosts.length} promo</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5">
+                {latestPosts.map((promo) => (
+                  <PromoCard key={promo.id} promo={promo} onSelect={(p) => setActiveDetailPromo(p)} />
+                ))}
+              </div>
+            </section>
+          </>
+        )}
       </main>
 
       {/* Sheet Detail Promo (Slide-over di Desktop, Bottom Sheet di Mobile) */}

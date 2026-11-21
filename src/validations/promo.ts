@@ -119,15 +119,20 @@ export type UpdatePromotionInput = z.infer<typeof updatePromotionSchema>;
 export function mapFrontendToStoreType(frontendType: string): StoreType {
   switch (frontendType) {
     case "Supermarket":
+    case "SUPERMARKET":
       return StoreType.SUPERMARKET;
     case "Pasar Tradisional":
+    case "TRADITIONAL_MARKET":
       return StoreType.TRADITIONAL_MARKET;
     case "Minimarket":
+    case "MINIMARKET":
       return StoreType.MINIMARKET;
     case "Toko Buah & Sayur":
+    case "FRUIT_VEGETABLE_STORE":
       return StoreType.FRUIT_VEGETABLE_STORE;
     case "Toko Lokal":
     case "Toko Lokal / Kelontong":
+    case "LOCAL_STORE":
     case "Online / Marketplace":
     default:
       return StoreType.LOCAL_STORE;
