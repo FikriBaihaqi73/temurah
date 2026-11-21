@@ -1,13 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { X, Lock, ShieldCheck, Tag } from "lucide-react";
+import { X, Lock, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 
 export function AuthModal() {
   const router = useRouter();
-  const { isAuthModalOpen, closeAuthModal, authModalReason, login } = useAuth();
+  const { isAuthModalOpen, closeAuthModal, authModalReason } = useAuth();
 
   if (!isAuthModalOpen) return null;
 

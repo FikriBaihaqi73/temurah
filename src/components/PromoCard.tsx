@@ -6,8 +6,7 @@ import {
   X,
   MessageSquare, 
   MapPin, 
-  Bookmark,
-  ExternalLink
+  Bookmark
 } from "lucide-react";
 import { PromoPost } from "@/lib/mock-data";
 import { formatRupiah, cn } from "@/lib/utils";
@@ -28,6 +27,8 @@ export function PromoCard({ promo, onSelect }: PromoCardProps) {
   const [invalidCount, setInvalidCount] = useState(promo.expiredReportsCount || 0);
   const [saved, setSaved] = useState(promo.isBookmarked ?? false);
   const [prevPromoId, setPrevPromoId] = useState(promo.id);
+  const [isVoting, setIsVoting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   if (promo.id !== prevPromoId) {
     setPrevPromoId(promo.id);
@@ -40,7 +41,9 @@ export function PromoCard({ promo, onSelect }: PromoCardProps) {
   // Toggle Valid
   const toggleValid = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (isVoting) return;
     requireAuth(async () => {
+      setIsVoting(true);
       const prevVote = userVote;
       const prevValid = validCount;
       const prevInvalid = invalidCount;
@@ -75,6 +78,8 @@ export function PromoCard({ promo, onSelect }: PromoCardProps) {
         setUserVote(prevVote);
         setValidCount(prevValid);
         setInvalidCount(prevInvalid);
+      } finally {
+        setIsVoting(false);
       }
     }, "Masuk untuk memverifikasi keakuratan promo ini.");
   };
@@ -82,7 +87,9 @@ export function PromoCard({ promo, onSelect }: PromoCardProps) {
   // Toggle Tidak Valid
   const toggleInvalid = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (isVoting) return;
     requireAuth(async () => {
+      setIsVoting(true);
       const prevVote = userVote;
       const prevValid = validCount;
       const prevInvalid = invalidCount;
@@ -117,13 +124,17 @@ export function PromoCard({ promo, onSelect }: PromoCardProps) {
         setUserVote(prevVote);
         setValidCount(prevValid);
         setInvalidCount(prevInvalid);
+      } finally {
+        setIsVoting(false);
       }
     }, "Masuk untuk melaporkan promo yang tidak valid / tidak sesuai.");
   };
 
   const toggleBookmark = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (isSaving) return;
     requireAuth(async () => {
+      setIsSaving(true);
       const prevSaved = saved;
       setSaved(!prevSaved);
 
@@ -139,6 +150,8 @@ export function PromoCard({ promo, onSelect }: PromoCardProps) {
       } catch (err) {
         console.error("Gagal memperbarui bookmark:", err);
         setSaved(prevSaved);
+      } finally {
+        setIsSaving(false);
       }
     }, "Masuk untuk menyimpan promo ke daftar favorit Anda.");
   };

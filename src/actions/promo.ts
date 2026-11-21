@@ -2,109 +2,21 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUserAction } from "@/actions/auth";
+import { getCurrentUserAction, type SafeUser } from "@/actions/auth";
 import {
   createPromotionSchema,
   updatePromotionSchema,
   mapFrontendToStoreType,
-  mapStoreTypeToFrontend,
   mapFrontendToStockCondition,
   type CreatePromotionInput,
   type UpdatePromotionInput,
 } from "@/validations/promo";
-import { preferenceToRoleAndBadge } from "@/lib/auth-session";
-import type { PromoPost, PromoComment } from "@/lib/mock-data";
+import type { PromoPost } from "@/lib/mock-data";
 import { PromotionStatus } from "@/generated/prisma/enums";
 import {
   transformPromotionToPromoPost,
   type PromotionWithRelations,
 } from "@/lib/promo-helpers";
-
-// Pusat koordinat standar area Yogyakarta / Sleman untuk hitung jarak
-const DEFAULT_USER_LAT = -7.7829;
-const DEFAULT_USER_LNG = 110.3671;
-
-/**
- * Helper: Hitung jarak Haversine antara dua koordinat geolokasi.
- */
-function calculateDistance(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-): string {
-  const R = 6371; // Radius bumi dalam KM
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const d = R * c;
-
-  if (d < 1) {
-    return `${Math.round(d * 1000)} m`;
-  }
-  return `${d.toFixed(1)} km`;
-}
-
-/**
- * Helper: Format sisa masa berlaku promo ramah pengguna.
- */
-function formatValidUntil(endsAt: Date): string {
-  const now = new Date();
-  const diffMs = endsAt.getTime() - now.getTime();
-  if (diffMs <= 0) return "Sudah berakhir";
-
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  const diffDays = Math.floor(diffHours / 24);
-
-  const isToday =
-    endsAt.getDate() === now.getDate() &&
-    endsAt.getMonth() === now.getMonth() &&
-    endsAt.getFullYear() === now.getFullYear();
-
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const isTomorrow =
-    endsAt.getDate() === tomorrow.getDate() &&
-    endsAt.getMonth() === tomorrow.getMonth() &&
-    endsAt.getFullYear() === tomorrow.getFullYear();
-
-  const timeStr = endsAt.toLocaleTimeString("id-ID", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
-  if (isToday) return `Hari ini s/d ${timeStr}`;
-  if (isTomorrow) return `Besok, ${timeStr}`;
-  if (diffDays <= 7) return `${diffDays} Hari lagi`;
-
-  return endsAt.toLocaleDateString("id-ID", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-/**
- * Helper: Format waktu lampau untuk komentar warga.
- */
-function formatTimeAgo(date: Date): string {
-  const now = new Date();
-  const diffSec = Math.floor((now.getTime() - date.getTime()) / 1000);
-  if (diffSec < 60) return "Baru saja";
-  const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return `${diffMin} menit lalu`;
-  const diffHour = Math.floor(diffMin / 60);
-  if (diffHour < 24) return `${diffHour} jam lalu`;
-  const diffDay = Math.floor(diffHour / 24);
-  if (diffDay < 30) return `${diffDay} hari lalu`;
-  return date.toLocaleDateString("id-ID");
-}
 
 export type PromoActionResult<T = unknown> =
   | { success: true; data: T }
@@ -115,11 +27,15 @@ export type PromoActionResult<T = unknown> =
  * Memerlukan user terautentikasi melalui session cookie.
  */
 export async function createPromotionAction(
-  data: CreatePromotionInput
+  data: CreatePromotionInput,
+  currentUserOverride?: SafeUser | null
 ): Promise<PromoActionResult<{ id: string }>> {
   try {
     // 1. Verifikasi autentikasi user dari session cookie
-    const currentUser = await getCurrentUserAction();
+    const currentUser =
+      process.env.NODE_ENV === "test" && currentUserOverride !== undefined
+        ? currentUserOverride
+        : await getCurrentUserAction();
     if (!currentUser) {
       return {
         success: false,
@@ -211,7 +127,11 @@ export async function createPromotionAction(
     });
 
     // Revalidate katalog halaman depan
-    revalidatePath("/");
+    try {
+      revalidatePath("/");
+    } catch {
+      // Revalidation safe fallback for test environments
+    }
 
     return {
       success: true,
@@ -348,11 +268,15 @@ export async function getPromotionDetailAction(
  */
 export async function updatePromotionAction(
   id: string,
-  data: UpdatePromotionInput
+  data: UpdatePromotionInput,
+  currentUserOverride?: SafeUser | null
 ): Promise<PromoActionResult<{ id: string }>> {
   try {
     // 1. Verifikasi pengguna login
-    const currentUser = await getCurrentUserAction();
+    const currentUser =
+      process.env.NODE_ENV === "test" && currentUserOverride !== undefined
+        ? currentUserOverride
+        : await getCurrentUserAction();
     if (!currentUser) {
       return {
         success: false,
@@ -474,7 +398,11 @@ export async function updatePromotionAction(
       },
     });
 
-    revalidatePath("/");
+    try {
+      revalidatePath("/");
+    } catch {
+      // Revalidation safe fallback for test environments
+    }
 
     return {
       success: true,
@@ -495,11 +423,15 @@ export async function updatePromotionAction(
  * Relasi ke validasi, log validasi, komentar, dan bookmark otomatis terhapus (Cascade).
  */
 export async function deletePromotionAction(
-  id: string
+  id: string,
+  currentUserOverride?: SafeUser | null
 ): Promise<PromoActionResult<{ id: string }>> {
   try {
     // 1. Verifikasi pengguna login
-    const currentUser = await getCurrentUserAction();
+    const currentUser =
+      process.env.NODE_ENV === "test" && currentUserOverride !== undefined
+        ? currentUserOverride
+        : await getCurrentUserAction();
     if (!currentUser) {
       return {
         success: false,
@@ -532,7 +464,11 @@ export async function deletePromotionAction(
       where: { id },
     });
 
-    revalidatePath("/");
+    try {
+      revalidatePath("/");
+    } catch {
+      // Revalidation safe fallback for test environments
+    }
 
     return {
       success: true,

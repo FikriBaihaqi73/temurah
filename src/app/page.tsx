@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from "react";
 import { 
   SlidersHorizontal,
   ChevronDown,
-  RotateCcw,
   Flame,
   Clock,
   Percent,
@@ -13,7 +12,7 @@ import {
 import { HeaderNav } from "@/components/HeaderNav";
 import { PromoCard } from "@/components/PromoCard";
 import { PromoDetailSheet } from "@/components/PromoDetailSheet";
-import { MOCK_PROMO_POSTS, PromoPost } from "@/lib/mock-data";
+import type { PromoPost } from "@/lib/mock-data";
 import { getPromotionsAction } from "@/actions/promo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,7 +34,8 @@ export default function LandingPage() {
   const [selectedLocation, setSelectedLocation] = useState("Semua Area");
   const [searchQuery, setSearchQuery] = useState("");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [promos, setPromos] = useState<PromoPost[]>(MOCK_PROMO_POSTS);
+  const [promos, setPromos] = useState<PromoPost[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
   // State untuk Detail Sheet Promo Aktif
   const [activeDetailPromo, setActiveDetailPromo] = useState<PromoPost | null>(null);
@@ -53,11 +53,17 @@ export default function LandingPage() {
           storeType: selectedStoreType,
           area: selectedLocation,
         });
-        if (isMounted && res.success && res.data) {
-          setPromos(res.data);
+        if (isMounted) {
+          if (res.success && res.data) {
+            setPromos(res.data);
+          }
+          setIsLoading(false);
         }
       } catch (err) {
         console.error("Gagal memuat promo live:", err);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     }, searchQuery ? 250 : 0);
 
@@ -244,7 +250,20 @@ export default function LandingPage() {
           </div>
         )}
 
-        {promos.length === 0 ? (
+        {isLoading ? (
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 py-6">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div
+                key={i}
+                className="animate-pulse rounded border border-zinc-200 bg-white p-2.5 sm:p-3 dark:border-zinc-800 dark:bg-zinc-900 space-y-2"
+              >
+                <div className="aspect-square w-full rounded bg-zinc-200 dark:bg-zinc-800" />
+                <div className="h-3 w-3/4 rounded bg-zinc-200 dark:bg-zinc-800" />
+                <div className="h-3 w-1/2 rounded bg-zinc-200 dark:bg-zinc-800" />
+              </div>
+            ))}
+          </div>
+        ) : promos.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center border border-dashed border-zinc-200 dark:border-zinc-800 rounded-lg">
             <SlidersHorizontal className="h-8 w-8 text-zinc-300 dark:text-zinc-600 mb-2" />
             <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">

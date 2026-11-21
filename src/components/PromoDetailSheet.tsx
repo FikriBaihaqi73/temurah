@@ -5,14 +5,11 @@ import {
   X, 
   MapPin, 
   Check, 
-  AlertTriangle, 
   MessageSquare, 
   ShieldCheck, 
   Clock, 
   Send,
   Navigation,
-  ThumbsUp,
-  ThumbsDown,
   Trash2
 } from "lucide-react";
 import { PromoPost, PromoComment } from "@/lib/mock-data";
@@ -45,6 +42,8 @@ export function PromoDetailSheet({ promo, onClose, onConfirm, onDelete }: PromoD
   const [validCount, setValidCount] = useState(promo?.confirmedCount || 0);
   const [invalidCount, setInvalidCount] = useState(promo?.expiredReportsCount || 0);
   const [prevPromoId, setPrevPromoId] = useState(promo?.id);
+  const [isVoting, setIsVoting] = useState(false);
+  const [isCommenting, setIsCommenting] = useState(false);
 
   if (promo && promo.id !== prevPromoId) {
     setPrevPromoId(promo.id);
@@ -79,8 +78,9 @@ export function PromoDetailSheet({ promo, onClose, onConfirm, onDelete }: PromoD
   };
 
   const handleValidVote = () => {
-    if (!promo) return;
+    if (!promo || isVoting) return;
     requireAuth(async () => {
+      setIsVoting(true);
       const prevVote = userVote;
       const prevValid = validCount;
       const prevInvalid = invalidCount;
@@ -116,13 +116,16 @@ export function PromoDetailSheet({ promo, onClose, onConfirm, onDelete }: PromoD
         setUserVote(prevVote);
         setValidCount(prevValid);
         setInvalidCount(prevInvalid);
+      } finally {
+        setIsVoting(false);
       }
     }, "Masuk untuk mengonfirmasi bahwa promo ini masih tersedia di lokasi.");
   };
 
   const handleInvalidVote = () => {
-    if (!promo) return;
+    if (!promo || isVoting) return;
     requireAuth(async () => {
+      setIsVoting(true);
       const prevVote = userVote;
       const prevValid = validCount;
       const prevInvalid = invalidCount;
@@ -157,6 +160,8 @@ export function PromoDetailSheet({ promo, onClose, onConfirm, onDelete }: PromoD
         setUserVote(prevVote);
         setValidCount(prevValid);
         setInvalidCount(prevInvalid);
+      } finally {
+        setIsVoting(false);
       }
     }, "Masuk untuk melaporkan promo yang tidak sesuai atau bohong.");
   };
@@ -164,9 +169,10 @@ export function PromoDetailSheet({ promo, onClose, onConfirm, onDelete }: PromoD
   const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = commentText.trim();
-    if (!trimmed || !promo) return;
+    if (!trimmed || !promo || isCommenting) return;
 
     requireAuth(async () => {
+      setIsCommenting(true);
       try {
         const res = await addCommentAction({
           promotionId: promo.id,
@@ -182,6 +188,8 @@ export function PromoDetailSheet({ promo, onClose, onConfirm, onDelete }: PromoD
       } catch (err) {
         console.error("Gagal menambahkan komentar:", err);
         alert("Terjadi kendala saat mengirim komentar.");
+      } finally {
+        setIsCommenting(false);
       }
     }, "Masuk untuk menulis komentar update stok.");
   };
@@ -426,7 +434,13 @@ export function PromoDetailSheet({ promo, onClose, onConfirm, onDelete }: PromoD
                 placeholder={user ? "Tulis update stok terkini..." : "Masuk untuk menulis komentar update stok..."}
                 className="flex-1 rounded border border-zinc-300 bg-white px-2.5 py-1.5 text-xs text-zinc-900 placeholder:text-zinc-500 focus:border-red-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder:text-zinc-400 dark:focus:border-red-500"
               />
-              <Button type="submit" size="sm" variant="primary" className="h-8 px-3 shrink-0">
+              <Button
+                type="submit"
+                size="sm"
+                variant="primary"
+                disabled={isCommenting}
+                className="h-8 px-3 shrink-0"
+              >
                 <Send className="h-3 w-3" />
               </Button>
             </form>

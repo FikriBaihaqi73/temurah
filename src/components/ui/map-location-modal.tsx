@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { 
   X, 
   MapPin, 
@@ -89,8 +89,19 @@ export function MapLocationModal({
   });
 
   const [isLocatingUser, setIsLocatingUser] = useState(false);
-  const [searchResults, setSearchResults] = useState<LocationResult[]>(POPULAR_LOCATIONS);
+  const [onlineResults, setOnlineResults] = useState<LocationResult[]>([]);
   const [isSearchingOnline, setIsSearchingOnline] = useState(false);
+
+  const localMatches = useMemo(() => {
+    if (!searchQuery.trim()) return POPULAR_LOCATIONS;
+    return POPULAR_LOCATIONS.filter(
+      (p) =>
+        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.address.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [searchQuery]);
+
+  const searchResults = localMatches.length > 0 ? localMatches : onlineResults;
 
   useEffect(() => {
     if (isOpen) {
@@ -102,48 +113,39 @@ export function MapLocationModal({
   }, [isOpen]);
 
   useEffect(() => {
-    if (!searchQuery.trim()) {
-      setSearchResults(POPULAR_LOCATIONS);
+    if (!searchQuery.trim() || localMatches.length > 0) {
       return;
     }
 
-    const filtered = POPULAR_LOCATIONS.filter(
-      (p) =>
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.address.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-
-    if (filtered.length > 0) {
-      setSearchResults(filtered);
-    } else {
-      const timer = setTimeout(async () => {
-        try {
-          setIsSearchingOnline(true);
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-              searchQuery + " Yogyakarta"
-            )}&limit=5`
-          );
-          const data = await res.json();
-          if (Array.isArray(data) && data.length > 0) {
-            const onlineResults: LocationResult[] = data.map((item: any) => ({
-              name: item.display_name.split(",")[0],
-              address: item.display_name,
-              lat: parseFloat(item.lat),
-              lng: parseFloat(item.lon),
-            }));
-            setSearchResults(onlineResults);
-          }
-        } catch (e) {
-          console.error("Nominatim search error", e);
-        } finally {
-          setIsSearchingOnline(false);
+    const timer = setTimeout(async () => {
+      try {
+        setIsSearchingOnline(true);
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+            searchQuery + " Yogyakarta"
+          )}&limit=5`
+        );
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          const results: LocationResult[] = data.map((item: { display_name: string; lat: string; lon: string }) => ({
+            name: item.display_name.split(",")[0],
+            address: item.display_name,
+            lat: parseFloat(item.lat),
+            lng: parseFloat(item.lon),
+          }));
+          setOnlineResults(results);
+        } else {
+          setOnlineResults([]);
         }
-      }, 500);
+      } catch (e) {
+        console.error("Nominatim search error", e);
+      } finally {
+        setIsSearchingOnline(false);
+      }
+    }, 500);
 
-      return () => clearTimeout(timer);
-    }
-  }, [searchQuery]);
+    return () => clearTimeout(timer);
+  }, [searchQuery, localMatches.length]);
 
   const handleGetCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -346,7 +348,7 @@ export function MapLocationModal({
               })
             ) : (
               <div className="p-6 text-center text-xs text-zinc-500">
-                Tidak ada lokasi ditemukan untuk "{searchQuery}".
+                Tidak ada lokasi ditemukan untuk &quot;{searchQuery}&quot;.
               </div>
             )}
           </div>

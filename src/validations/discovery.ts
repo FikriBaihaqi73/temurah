@@ -20,7 +20,8 @@ export const discoveryFilterSchema = z.object({
   limit: z.coerce.number().int().positive().max(100, "Batas data per halaman maksimal 100.").default(20).optional(),
 });
 
-export type DiscoveryFilterInput = z.infer<typeof discoveryFilterSchema>;
+export type DiscoveryFilterInput = z.input<typeof discoveryFilterSchema>;
+export type DiscoveryFilterOutput = z.infer<typeof discoveryFilterSchema>;
 
 export type PaginationMeta = {
   total: number;
