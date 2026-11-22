@@ -22,6 +22,7 @@ import { MapLocationModal } from "@/components/ui/map-location-modal";
 import { useAuth } from "@/lib/auth-context";
 import { formatRupiah, cn } from "@/lib/utils";
 import { createPromotionAction } from "@/actions/promo";
+import { uploadPromoImageAction } from "@/actions/upload";
 
 const CATEGORIES = [
   "Kebutuhan Pokok",
@@ -134,6 +135,19 @@ export default function SubmitDealPage() {
 
     setIsSubmitting(true);
     try {
+      let finalImageUrl = imagePreview;
+
+      // Jika gambar berupa data lokal Base64, unggah ke Cloudinary
+      if (imagePreview.startsWith("data:")) {
+        const uploadRes = await uploadPromoImageAction(imagePreview);
+        if (!uploadRes.success || !uploadRes.url) {
+          setIsSubmitting(false);
+          setError(uploadRes.error || "Gagal mengunggah foto ke Cloudinary.");
+          return;
+        }
+        finalImageUrl = uploadRes.url;
+      }
+
       const result = await createPromotionAction({
         title: title.trim(),
         category,
@@ -148,7 +162,7 @@ export default function SubmitDealPage() {
         expiryTime,
         stockCondition,
         notes: notes.trim(),
-        imageUrl: imagePreview,
+        imageUrl: finalImageUrl,
       });
 
       if (result.success) {
@@ -584,7 +598,7 @@ export default function SubmitDealPage() {
               disabled={isSubmitting || isSuccess}
               className="w-full h-11 text-xs font-bold bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-600/25"
             >
-              {isSubmitting ? "Mengunggah Temuan Promo..." : "Publikasikan Promo ke Warga"}
+              {isSubmitting ? "Mengunggah Bukti & Menerbitkan Promo..." : "Publikasikan Promo ke Warga"}
             </Button>
             <p className="mt-2 text-center text-[11px] text-zinc-500">
               Dengan mengunggah, kamu berkontribusi menjaga transparansi harga kebutuhan warga lokal.
