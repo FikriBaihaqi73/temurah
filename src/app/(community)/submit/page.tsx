@@ -23,6 +23,7 @@ import { useAuth } from "@/features/auth";
 import { formatRupiah, cn } from "@/lib/utils";
 import { createPromotionAction } from "@/features/promo";
 import { uploadPromoImageAction } from "@/features/upload";
+import { convertAndCompressToWebP } from "@/lib/image-compression";
 
 const CATEGORIES = [
   "Kebutuhan Pokok",
@@ -93,14 +94,24 @@ export default function SubmitDealPage() {
     : 0;
   const totalHemat = origNum > promoNum ? origNum - promoNum : 0;
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      if (file.size > 10 * 1024 * 1024) {
+        setError("Ukuran foto maksimal 10 MB.");
+        return;
+      }
+      try {
+        // Konversi dan kompresi otomatis ke format WebP sebelum di-preview / diunggah
+        const webpCompressed = await convertAndCompressToWebP(file, 1400, 1400, 0.82);
+        setImagePreview(webpCompressed);
+      } catch {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setImagePreview(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+      }
     }
   };
 
@@ -293,7 +304,7 @@ export default function SubmitDealPage() {
                   Ambil Foto / Pilih Gambar Bukti
                 </p>
                 <p className="text-[11px] text-zinc-500 mt-1">
-                  Format JPG, PNG, atau WebP (Maks. 5MB)
+                  Format JPG, PNG, atau WebP (Maks. 10MB, otomatis dikompres ke WebP)
                 </p>
               </div>
             )}

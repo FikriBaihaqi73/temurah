@@ -7,9 +7,10 @@ import {
   registerAction,
   logoutAction,
   getCurrentUserAction,
+  updateProfileAction,
   type SafeUser,
 } from "@/features/auth/actions";
-import type { UserRole } from "@/features/auth/validations";
+import type { UserRole, UpdateProfileInput } from "@/features/auth/validations";
 
 export type { UserRole };
 
@@ -29,6 +30,7 @@ interface AuthContextType {
     role: UserRole;
   }) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
+  updateProfile: (data: UpdateProfileInput) => Promise<{ success: boolean; error?: string }>;
   openAuthModal: (reason?: string) => void;
   closeAuthModal: () => void;
   requireAuth: (action: () => void, reason?: string) => void;
@@ -136,6 +138,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updateProfile = async (data: UpdateProfileInput) => {
+    setIsLoading(true);
+    try {
+      const result = await updateProfileAction(data);
+      if (result.success) {
+        setUser(result.user);
+        return { success: true };
+      }
+      return { success: false, error: result.error };
+    } catch (err) {
+      console.error("[updateProfile error]:", err);
+      return { success: false, error: "Gagal memperbarui profil." };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const openAuthModal = (reason = "Masuk untuk melanjutkan.") => {
     setAuthModalReason(reason);
     router.push(`/login?reason=${encodeURIComponent(reason)}`);
@@ -163,6 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         register,
         logout,
+        updateProfile,
         openAuthModal,
         closeAuthModal,
         requireAuth,

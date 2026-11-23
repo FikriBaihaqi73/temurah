@@ -5,8 +5,10 @@ import { prisma } from "@/lib/prisma";
 import {
   registerSchema,
   loginSchema,
+  updateProfileSchema,
   type RegisterInput,
   type LoginInput,
+  type UpdateProfileInput,
   type UserRole,
 } from "@/features/auth/validations";
 import {
@@ -184,6 +186,126 @@ export async function loginAction(
     return {
       success: false,
       error: "Terjadi kendala pada server saat proses masuk. Silakan coba lagi.",
+    };
+  }
+}
+
+/**
+ * Server Action: Memperbarui profil pengguna (Nama, Persona/Role, Foto Avatar, dan Password).
+ */
+export async function updateProfileAction(
+  data: UpdateProfileInput
+): Promise<AuthActionResult> {
+  try {
+    const session = await getSession();
+    if (!session?.sub) {
+      return {
+        success: false,
+        error: "UNAUTHORIZED: Silakan masuk terlebih dahulu untuk mengubah profil.",
+      };
+    }
+
+    const validation = updateProfileSchema.safeParse(data);
+    if (!validation.success) {
+      const firstError = validation.error.issues[0]?.message || "Data input tidak valid.";
+      return { success: false, error: firstError };
+    }
+
+    const { name, role, avatarUrl, currentPassword, newPassword } = validation.data;
+
+    // Ambil data user dari database
+    const existingUser = await prisma.user.findUnique({
+      where: { id: session.sub },
+    });
+
+    if (!existingUser || existingUser.deletedAt) {
+      await deleteSessionCookie();
+      return {
+        success: false,
+        error: "Pengguna tidak ditemukan atau akun sudah dinonaktifkan.",
+      };
+    }
+
+    // Persiapan update field
+    const updateData: {
+      name: string;
+      preference: any;
+      avatarUrl?: string;
+      passwordHash?: string;
+    } = {
+      name,
+      preference: roleToPreference(role),
+    };
+
+    if (avatarUrl) {
+      updateData.avatarUrl = avatarUrl;
+    }
+
+    // Jika pengguna meminta ganti kata sandi
+    if (newPassword && newPassword.length >= 6) {
+      if (!currentPassword) {
+        return {
+          success: false,
+          error: "Kata sandi saat ini wajib diisi untuk mengubah kata sandi.",
+        };
+      }
+
+      const isCurrentValid = await bcrypt.compare(
+        currentPassword,
+        existingUser.passwordHash
+      );
+
+      if (!isCurrentValid) {
+        return {
+          success: false,
+          error: "Kata sandi saat ini salah.",
+        };
+      }
+
+      updateData.passwordHash = await bcrypt.hash(newPassword, 10);
+    }
+
+    // Update di database
+    const updatedUser = await prisma.user.update({
+      where: { id: session.sub },
+      data: updateData,
+    });
+
+    const preference = updatedUser.preference;
+    const { role: newRole, badge: newBadge } = preferenceToRoleAndBadge(preference);
+    const finalAvatar =
+      updatedUser.avatarUrl ||
+      "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80";
+
+    // Update session cookie dengan data terbaru
+    const newSessionPayload: SessionPayload = {
+      sub: updatedUser.id,
+      email: updatedUser.email,
+      name: updatedUser.name,
+      role: newRole,
+      badge: newBadge,
+      avatarUrl: updatedUser.avatarUrl,
+      preference,
+    };
+
+    await setSessionCookie(newSessionPayload);
+
+    return {
+      success: true,
+      user: {
+        id: updatedUser.id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        role: newRole,
+        badge: newBadge,
+        avatar: finalAvatar,
+      },
+    };
+  } catch (error) {
+    console.error("[updateProfileAction error]:", error);
+    return {
+      success: false,
+      error: "Terjadi kesalahan pada server saat memperbarui profil.",
     };
   }
 }

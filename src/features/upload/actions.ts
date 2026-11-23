@@ -63,14 +63,15 @@ export async function uploadPromoImageAction(
       };
     }
 
-    // 4. Unggah ke Cloudinary dengan optimasi otomatis
+    // 4. Unggah ke Cloudinary dengan format WebP dan kompresi optimal
     const uploadResponse = await cloudinary.uploader.upload(imageData, {
       folder: "temurah/promotions",
       resource_type: "image",
+      format: "webp", // Pastikan disimpan di Cloudinary sebagai WebP
       transformation: [
-        { width: 1280, height: 1280, crop: "limit" }, // Batasi dimensi maks 1280px
-        { quality: "auto" },                           // Kompresi kualitas cerdas
-        { fetch_format: "auto" },                      // Format WebP/AVIF sesuai browser
+        { width: 1280, height: 1280, crop: "limit" }, // Batasi resolusi maksimal 1280px
+        { quality: "auto:eco" },                      // Kompresi hemat ukuran Cloudinary
+        { fetch_format: "webp" },                     // Format WebP murni
       ],
     });
 

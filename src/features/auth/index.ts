@@ -3,3 +3,5 @@ export * from "./validations";
 export * from "./roles";
 export * from "./context";
 export * from "./components/AuthModal";
+export * from "./components/EditProfileModal";
+export * from "./components/ImageCropModal";

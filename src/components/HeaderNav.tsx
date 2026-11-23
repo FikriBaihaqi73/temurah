@@ -12,11 +12,13 @@ import {
   Loader2, 
   Navigation,
   ChevronDown,
-  Compass
+  Compass,
+  User,
+  Settings
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
-import { useAuth } from "@/features/auth";
+import { useAuth, EditProfileModal } from "@/features/auth";
 import { cn } from "@/lib/utils";
 
 const RADIUS_OPTIONS = [
@@ -46,6 +48,7 @@ export function HeaderNav({
 }: HeaderNavProps) {
   const { user, openAuthModal, logout } = useAuth();
   const [openProfileMenu, setOpenProfileMenu] = useState(false);
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [openLocationMenu, setOpenLocationMenu] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [customKmInput, setCustomKmInput] = useState("");
@@ -338,19 +341,35 @@ export function HeaderNav({
                 </button>
 
                 {openProfileMenu && (
-                  <div className="absolute right-0 mt-1 w-44 rounded border border-zinc-200 bg-white p-1.5 shadow-lg dark:border-zinc-800 dark:bg-zinc-900 z-50">
-                    <div className="px-2 py-1 text-[11px] border-b border-zinc-100 dark:border-zinc-800 mb-1">
-                      <p className="font-semibold text-zinc-900 dark:text-zinc-100">{user.name}</p>
-                      <p className="text-[10px] text-zinc-400">{user.badge}</p>
+                  <div className="absolute right-0 mt-1 w-48 rounded-lg border border-zinc-200 bg-white p-1.5 shadow-xl dark:border-zinc-800 dark:bg-zinc-900 z-50 animate-in fade-in zoom-in-95 duration-100">
+                    <div className="px-2 py-1.5 text-[11px] border-b border-zinc-100 dark:border-zinc-800 mb-1">
+                      <p className="font-semibold text-zinc-900 dark:text-zinc-100 truncate">{user.name}</p>
+                      <p className="text-[10px] text-zinc-400 truncate">{user.email}</p>
+                      <span className="inline-block mt-0.5 px-1.5 py-0.2 rounded text-[9px] bg-red-50 text-red-600 dark:bg-red-950/60 dark:text-red-300 font-medium">
+                        {user.badge}
+                      </span>
                     </div>
+
+                    {/* Tombol Pengaturan & Edit Profil */}
+                    <button
+                      onClick={() => {
+                        setOpenProfileMenu(false);
+                        setIsEditProfileOpen(true);
+                      }}
+                      className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800 transition-colors"
+                    >
+                      <Settings className="h-3.5 w-3.5 text-zinc-500" />
+                      <span>Edit Profil & Password</span>
+                    </button>
+
                     <button
                       onClick={() => {
                         logout();
                         setOpenProfileMenu(false);
                       }}
-                      className="flex w-full items-center gap-1.5 rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
+                      className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors mt-0.5"
                     >
-                      <LogOut className="h-3 w-3" />
+                      <LogOut className="h-3.5 w-3.5" />
                       <span>Keluar</span>
                     </button>
                   </div>
@@ -382,6 +401,12 @@ export function HeaderNav({
           />
         </div>
       </div>
+
+      {/* Modal Edit Profil & Password */}
+      <EditProfileModal
+        isOpen={isEditProfileOpen}
+        onClose={() => setIsEditProfileOpen(false)}
+      />
     </header>
   );
 }
