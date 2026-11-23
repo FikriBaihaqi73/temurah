@@ -10,8 +10,8 @@ import {
 } from "lucide-react";
 import { PromoPost } from "@/lib/mock-data";
 import { formatRupiah, cn } from "@/lib/utils";
-import { useAuth } from "@/lib/auth-context";
-import { toggleValidationAction, toggleBookmarkAction } from "@/actions/community";
+import { useAuth } from "@/features/auth";
+import { toggleValidationAction, toggleBookmarkAction } from "@/features/community";
 
 interface PromoCardProps {
   promo: PromoPost;

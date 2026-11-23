@@ -16,13 +16,13 @@ import { PromoPost, PromoComment } from "@/lib/mock-data";
 import { formatRupiah, cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { OpenStreetMapViewer } from "@/components/ui/open-street-map";
-import { useAuth } from "@/lib/auth-context";
-import { deletePromotionAction } from "@/actions/promo";
+import { useAuth } from "@/features/auth";
+import { deletePromotionAction } from "@/features/promo";
 import {
   toggleValidationAction,
   addCommentAction,
   deleteCommentAction,
-} from "@/actions/community";
+} from "@/features/community";
 
 interface PromoDetailSheetProps {
   promo: PromoPost | null;

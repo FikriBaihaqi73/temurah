@@ -1,21 +1,22 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { getCurrentUserAction, type SafeUser } from "@/actions/auth";
+import { getCurrentUserAction, type SafeUser } from "@/features/auth/actions";
 import { PromotionStatus, StoreType } from "@/generated/prisma/enums";
-import { mapFrontendToStoreType } from "@/validations/promo";
+import { mapFrontendToStoreType } from "@/features/promo/validations";
 import {
   transformPromotionToPromoPost,
   buildAreaWhereClause,
+  calculateDistanceKm,
   type PromotionWithRelations,
-} from "@/lib/promo-helpers";
+} from "@/features/promo/helpers";
 import {
   discoveryFilterSchema,
   type DiscoveryFilterInput,
   type DiscoverPromotionsResult,
   type PaginationMeta,
-} from "@/validations/discovery";
-import type { PromoActionResult } from "@/actions/promo";
+} from "@/features/promo/discovery.validations";
+import type { PromoActionResult } from "@/features/promo";
 
 /**
  * Server Action: Discovery & Filtering Promosi
@@ -168,12 +169,30 @@ export async function getDiscoverPromotionsAction(
     });
 
     // 6. Transformasi ke format PromoPost
-    const mappedPromos = promotions.map((promo) =>
+    const hasCoordinates = typeof input.userLat === "number" && typeof input.userLng === "number";
+    const userCoords = hasCoordinates ? { lat: input.userLat!, lng: input.userLng! } : undefined;
+
+    let mappedPromos = promotions.map((promo) =>
       transformPromotionToPromoPost(
         promo as unknown as PromotionWithRelations,
-        currentUser?.id
+        currentUser?.id,
+        userCoords
       )
     );
+
+    // Filter berdasarkan radius (Km) jika user menyertakan koordinat GPS dan radiusKm > 0 (0 = tanpa radius / seluruh dunia)
+    if (hasCoordinates && typeof input.radiusKm === "number" && input.radiusKm > 0) {
+      const maxRadius = input.radiusKm;
+      mappedPromos = mappedPromos.filter((p) => {
+        const distKm = calculateDistanceKm(
+          input.userLat!,
+          input.userLng!,
+          p.lat,
+          p.lng
+        );
+        return distKm <= maxRadius;
+      });
+    }
 
     // 7. Pengurutan (Sorting) sesuai kriteria yang diminta
     if (sortBy === "most_validated") {

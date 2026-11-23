@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { X, Lock, ShieldCheck } from "lucide-react";
-import { useAuth } from "@/lib/auth-context";
+import { useAuth } from "@/features/auth";
 import { Button } from "@/components/ui/button";
 
 export function AuthModal() {

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUserAction, type SafeUser } from "@/actions/auth";
+import { getCurrentUserAction, type SafeUser } from "@/features/auth/actions";
 import {
   validatePromoSchema,
   bookmarkPromoSchema,
@@ -12,15 +12,15 @@ import {
   type BookmarkPromoInput,
   type AddCommentInput,
   type DeleteCommentInput,
-} from "@/validations/community";
+} from "@/features/community/validations";
 import { ValidationType, PromotionStatus } from "@/generated/prisma/enums";
-import { preferenceToRoleAndBadge } from "@/lib/auth-session";
+import { preferenceToRoleAndBadge } from "@/features/auth/roles";
 import type { PromoPost, PromoComment } from "@/lib/mock-data";
 import {
   formatTimeAgo,
   transformPromotionToPromoPost,
   type PromotionWithRelations,
-} from "@/lib/promo-helpers";
+} from "@/features/promo/helpers";
 
 export type CommunityActionResult<T = unknown> =
   | { success: true; data: T }

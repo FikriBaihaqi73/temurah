@@ -1,6 +1,6 @@
 import type { PromoPost, PromoComment } from "@/lib/mock-data";
-import { preferenceToRoleAndBadge } from "@/lib/auth-session";
-import { mapStoreTypeToFrontend } from "@/validations/promo";
+import { preferenceToRoleAndBadge } from "@/features/auth/roles";
+import { mapStoreTypeToFrontend } from "@/features/promo/validations";
 import { StoreType, UserPreference } from "@/generated/prisma/enums";
 
 // Pusat koordinat standar area Yogyakarta / Sleman untuk hitung jarak
@@ -77,6 +77,22 @@ export function calculateDistance(
   lat2: number,
   lon2: number
 ): string {
+  const d = calculateDistanceKm(lat1, lon1, lat2, lon2);
+  if (d < 1) {
+    return `${Math.round(d * 1000)} m`;
+  }
+  return `${d.toFixed(1)} km`;
+}
+
+/**
+ * Helper: Hitung jarak numerik murni dalam kilometer (KM).
+ */
+export function calculateDistanceKm(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
   const R = 6371; // Radius bumi dalam KM
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
@@ -87,12 +103,7 @@ export function calculateDistance(
       Math.sin(dLon / 2) *
       Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const d = R * c;
-
-  if (d < 1) {
-    return `${Math.round(d * 1000)} m`;
-  }
-  return `${d.toFixed(1)} km`;
+  return R * c;
 }
 
 /**
@@ -202,7 +213,8 @@ export type PromotionWithRelations = {
  */
 export function transformPromotionToPromoPost(
   promo: PromotionWithRelations,
-  currentUserId?: string | null
+  currentUserId?: string | null,
+  userCoordinates?: { lat: number; lng: number }
 ): PromoPost {
   const origPrice = promo.normalPrice;
   const promoPrice = promo.discountPrice;
@@ -251,9 +263,12 @@ export function transformPromotionToPromoPost(
     };
   });
 
+  const userLat = userCoordinates?.lat ?? DEFAULT_USER_LAT;
+  const userLng = userCoordinates?.lng ?? DEFAULT_USER_LNG;
+
   const distance = calculateDistance(
-    DEFAULT_USER_LAT,
-    DEFAULT_USER_LNG,
+    userLat,
+    userLng,
     promo.store.latitude,
     promo.store.longitude
   );

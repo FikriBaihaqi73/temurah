@@ -1,7 +1,7 @@
 "use server";
 
 import cloudinary from "@/lib/cloudinary";
-import { getCurrentUserAction } from "@/actions/auth";
+import { getCurrentUserAction } from "@/features/auth/actions";
 
 export interface UploadActionResult {
   success: boolean;

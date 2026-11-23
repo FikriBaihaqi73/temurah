@@ -2,96 +2,311 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { MapPin, ChevronDown, Check, Plus, Tag, LogIn, LogOut } from "lucide-react";
+import { 
+  MapPin, 
+  Check, 
+  Plus, 
+  Tag, 
+  LogIn, 
+  LogOut, 
+  Loader2, 
+  Navigation,
+  ChevronDown,
+  Compass
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
-import { useAuth } from "@/lib/auth-context";
+import { useAuth } from "@/features/auth";
 import { cn } from "@/lib/utils";
+
+const RADIUS_OPTIONS = [
+  { value: 0, label: "🌐 Tanpa Radius", desc: "Semua promo se-Indonesia / Global" },
+  { value: 5, label: "5 km", desc: "Radius Sekitar Lingkungan" },
+  { value: 10, label: "10 km", desc: "Radius Standar (Default)" },
+];
 
 interface HeaderNavProps {
   selectedLocation: string;
-  onLocationChange: (loc: string) => void;
+  onLocationChange: (loc: string, coords?: { lat: number; lng: number }) => void;
+  selectedRadius: number;
+  onRadiusChange: (radiusKm: number) => void;
   searchQuery: string;
   onSearchChange: (q: string) => void;
+  userCoords?: { lat: number; lng: number } | null;
 }
-
-const LOCATIONS = [
-  { id: "Semua Area", label: "Semua Area Sekitar" },
-  { id: "Sleman", label: "Sleman (Radius 5km)" },
-  { id: "Kota Yogyakarta", label: "Kota Yogyakarta" },
-  { id: "Bantul", label: "Bantul & Sekitarnya" },
-];
 
 export function HeaderNav({
   selectedLocation,
   onLocationChange,
+  selectedRadius = 10,
+  onRadiusChange,
   searchQuery,
   onSearchChange,
+  userCoords,
 }: HeaderNavProps) {
   const { user, openAuthModal, logout } = useAuth();
-  const [openLocation, setOpenLocation] = useState(false);
   const [openProfileMenu, setOpenProfileMenu] = useState(false);
+  const [openLocationMenu, setOpenLocationMenu] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
+  const [customKmInput, setCustomKmInput] = useState("");
+  const [isCustomMode, setIsCustomMode] = useState(false);
+  
   const locationRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (locationRef.current && !locationRef.current.contains(event.target as Node)) {
-        setOpenLocation(false);
-      }
       if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
         setOpenProfileMenu(false);
+      }
+      if (locationRef.current && !locationRef.current.contains(event.target as Node)) {
+        setOpenLocationMenu(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Request browser GPS location & reverse geocode
+  const handleRequestLocation = (overrideRadius?: number) => {
+    if (!navigator.geolocation) {
+      alert("Browser Anda tidak mendukung deteksi lokasi (Geolocation).");
+      return;
+    }
+
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
+          );
+          const data = await res.json();
+          const area =
+            data.address?.city_district ||
+            data.address?.city ||
+            data.address?.county ||
+            data.address?.town ||
+            data.address?.suburb ||
+            "Lokasi Terdekat";
+          onLocationChange(area, { lat, lng });
+          if (overrideRadius) {
+            onRadiusChange(overrideRadius);
+          }
+        } catch (e) {
+          console.error("Gagal reverse geocoding:", e);
+          onLocationChange("Lokasi Saya (GPS)", { lat: pos.coords.latitude, lng: pos.coords.longitude });
+        } finally {
+          setIsLocating(false);
+        }
+      },
+      (err) => {
+        console.warn("Izin lokasi ditolak atau gagal:", err);
+        setIsLocating(false);
+        if (err.code === 1) {
+          alert("Izin lokasi belum diberikan. Silakan aktifkan izin lokasi di browser Anda.");
+        } else {
+          alert("Gagal mendeteksi lokasi saat ini. Coba periksa koneksi GPS Anda.");
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  const hasActiveGps = !!userCoords;
+
   return (
     <header className="sticky top-0 z-40 border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
       {/* Baris 1: Logo, Area, & Action */}
       <div className="mx-auto flex h-12 sm:h-14 max-w-7xl items-center justify-between gap-2 px-3 sm:px-6">
-        {/* Brand */}
+        {/* Brand & Location Trigger */}
         <div className="flex items-center gap-2">
-          <div className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded bg-red-600 text-white font-bold text-xs shadow-xs">
-            <Tag className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-          </div>
-          <span className="text-sm sm:text-base font-black tracking-tight text-zinc-900 dark:text-zinc-50">
-            Temurah
-          </span>
+          <Link href="/" className="flex items-center gap-2">
+            <div className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded bg-red-600 text-white font-bold text-xs shadow-xs">
+              <Tag className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            </div>
+            <span className="text-sm sm:text-base font-black tracking-tight text-zinc-900 dark:text-zinc-50">
+              Temurah
+            </span>
+          </Link>
 
-          {/* Area Selector Popover */}
+          {/* Tombol Deteksi Lokasi & Pilihan Radius Popover */}
           <div className="relative" ref={locationRef}>
             <button
               type="button"
-              onClick={() => setOpenLocation(!openLocation)}
-              className="flex items-center gap-1 rounded border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 sm:px-2 sm:py-1 text-[11px] sm:text-xs text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              onClick={() => {
+                if (!hasActiveGps && selectedLocation === "Semua Area") {
+                  handleRequestLocation();
+                }
+                setOpenLocationMenu(!openLocationMenu);
+              }}
+              disabled={isLocating}
+              className={cn(
+                "flex items-center gap-1 rounded border px-2 py-1 text-[11px] sm:text-xs transition-colors",
+                hasActiveGps
+                  ? "border-red-200 bg-red-50/70 text-red-700 hover:bg-red-100/70 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300"
+                  : "border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800",
+                "disabled:opacity-70"
+              )}
+              title="Atur lokasi GPS dan radius pencarian diskon"
             >
-              <MapPin className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-red-600" />
-              <span className="max-w-[70px] sm:max-w-none truncate font-medium">{selectedLocation}</span>
-              <ChevronDown className="h-2.5 w-2.5 text-zinc-400" />
+              {isLocating ? (
+                <Loader2 className="h-3 w-3 text-red-600 animate-spin shrink-0" />
+              ) : (
+                <Navigation className={cn("h-2.5 w-2.5 sm:h-3 sm:w-3 shrink-0", hasActiveGps ? "text-red-600" : "text-zinc-500")} />
+              )}
+              <span className="max-w-[85px] sm:max-w-none truncate font-medium">
+                {isLocating
+                  ? "Mencari Lokasi..."
+                  : selectedLocation === "Semua Area"
+                  ? "Pilih Lokasi"
+                  : selectedRadius === 0
+                  ? `${selectedLocation} (Tanpa Radius)`
+                  : `${selectedLocation} (${selectedRadius}km)`}
+              </span>
+              <ChevronDown className="h-2.5 w-2.5 text-zinc-400 shrink-0" />
             </button>
 
-            {openLocation && (
-              <div className="absolute left-0 mt-1 w-44 sm:w-48 rounded border border-zinc-200 bg-white p-1 shadow-lg dark:border-zinc-800 dark:bg-zinc-900 z-50">
-                {LOCATIONS.map((loc) => (
-                  <button
-                    key={loc.id}
-                    onClick={() => {
-                      onLocationChange(loc.id);
-                      setOpenLocation(false);
-                    }}
-                    className={cn(
-                      "flex w-full items-center justify-between rounded px-2 py-1 text-left text-xs transition-colors",
-                      selectedLocation === loc.id
-                        ? "bg-zinc-100 font-semibold text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100"
-                        : "text-zinc-600 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-800/50"
+            {/* Dropdown Menu Lokasi & Radius */}
+            {openLocationMenu && (
+              <div className="absolute left-0 mt-1.5 w-64 rounded-lg border border-zinc-200 bg-white p-2.5 shadow-xl dark:border-zinc-800 dark:bg-zinc-900 z-50 animate-in fade-in zoom-in-95 duration-100">
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-zinc-100 dark:border-zinc-800">
+                  <span className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1">
+                    <Compass className="h-3.5 w-3.5 text-red-600" />
+                    Lokasi & Jangkauan
+                  </span>
+                  {selectedLocation !== "Semua Area" && (
+                    <button
+                      onClick={() => {
+                        onLocationChange("Semua Area", undefined);
+                        setOpenLocationMenu(false);
+                      }}
+                      className="text-[10px] text-zinc-400 hover:text-red-600 dark:hover:text-red-400 font-medium"
+                    >
+                      Reset Filter
+                    </button>
+                  )}
+                </div>
+
+                {/* Tombol Ambil Ulang GPS */}
+                <button
+                  type="button"
+                  onClick={() => handleRequestLocation()}
+                  disabled={isLocating}
+                  className="flex w-full items-center justify-between rounded-md bg-zinc-100 hover:bg-zinc-200/80 dark:bg-zinc-800 dark:hover:bg-zinc-700 px-2.5 py-1.5 text-xs text-zinc-800 dark:text-zinc-200 font-medium mb-3 transition-colors"
+                >
+                  <span className="flex items-center gap-1.5">
+                    {isLocating ? (
+                      <Loader2 className="h-3.5 w-3.5 text-red-600 animate-spin" />
+                    ) : (
+                      <MapPin className="h-3.5 w-3.5 text-red-600" />
                     )}
-                  >
-                    <span>{loc.label}</span>
-                    {selectedLocation === loc.id && <Check className="h-3 w-3 text-red-600" />}
-                  </button>
-                ))}
+                    <span>{hasActiveGps ? "Perbarui Lokasi GPS" : "Deteksi Lokasi GPS Saya"}</span>
+                  </span>
+                  <span className="text-[10px] text-zinc-400">GPS Browser</span>
+                </button>
+
+                {/* Pilihan Radius */}
+                <div className="space-y-1">
+                  <div className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 px-1 mb-1">
+                    Pilih Radius Promo:
+                  </div>
+                  {RADIUS_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => {
+                        onRadiusChange(opt.value);
+                        if (!hasActiveGps && selectedLocation === "Semua Area") {
+                          handleRequestLocation(opt.value);
+                        }
+                        setIsCustomMode(false);
+                        setOpenLocationMenu(false);
+                      }}
+                      className={cn(
+                        "flex w-full items-center justify-between rounded px-2 py-1.5 text-xs transition-colors",
+                        selectedRadius === opt.value && !isCustomMode
+                          ? "bg-red-50 text-red-700 font-semibold dark:bg-red-950/50 dark:text-red-300"
+                          : "text-zinc-600 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-800/50"
+                      )}
+                    >
+                      <div className="flex flex-col text-left">
+                        <span className="text-xs">{opt.label}</span>
+                        <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-normal">{opt.desc}</span>
+                      </div>
+                      {selectedRadius === opt.value && !isCustomMode && (
+                        <Check className="h-3.5 w-3.5 text-red-600 shrink-0" />
+                      )}
+                    </button>
+                  ))}
+
+                  {/* Opsi Custom Radius */}
+                  <div className="pt-1 border-t border-zinc-100 dark:border-zinc-800">
+                    {!isCustomMode && !RADIUS_OPTIONS.some((o) => o.value === selectedRadius) ? (
+                      <div className="flex items-center justify-between px-2 py-1.5 text-xs bg-red-50 text-red-700 font-semibold dark:bg-red-950/50 dark:text-red-300 rounded">
+                        <span>Custom: {selectedRadius} km</span>
+                        <button
+                          type="button"
+                          onClick={() => setIsCustomMode(true)}
+                          className="text-[10px] underline hover:text-red-800"
+                        >
+                          Ubah
+                        </button>
+                      </div>
+                    ) : isCustomMode ? (
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          const val = parseFloat(customKmInput);
+                          if (!isNaN(val) && val > 0) {
+                            onRadiusChange(Math.round(val));
+                            if (!hasActiveGps && selectedLocation === "Semua Area") {
+                              handleRequestLocation(Math.round(val));
+                            }
+                            setIsCustomMode(false);
+                            setOpenLocationMenu(false);
+                          }
+                        }}
+                        className="p-1.5 bg-zinc-50 dark:bg-zinc-800/60 rounded flex items-center gap-1.5 mt-1"
+                      >
+                        <input
+                          type="number"
+                          min="1"
+                          max="20000"
+                          step="1"
+                          placeholder="Ketik Km (misal: 7)..."
+                          value={customKmInput}
+                          onChange={(e) => setCustomKmInput(e.target.value)}
+                          className="w-full bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded px-2 py-1 text-xs focus:outline-hidden focus:border-red-500"
+                          autoFocus
+                        />
+                        <button
+                          type="submit"
+                          disabled={!customKmInput || parseFloat(customKmInput) <= 0}
+                          className="shrink-0 bg-red-600 hover:bg-red-700 text-white rounded px-2.5 py-1 text-[11px] font-semibold disabled:opacity-50"
+                        >
+                          Terapkan
+                        </button>
+                      </form>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsCustomMode(true);
+                          setCustomKmInput(selectedRadius > 0 ? String(selectedRadius) : "");
+                        }}
+                        className="flex w-full items-center justify-between rounded px-2 py-1.5 text-xs text-zinc-600 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-800/50 transition-colors"
+                      >
+                        <div className="flex flex-col text-left">
+                          <span className="text-xs">🎯 Custom Radius (Km)</span>
+                          <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-normal">Tentukan jarak bebas sesuai kebutuhan</span>
+                        </div>
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </div>

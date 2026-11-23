@@ -8,7 +8,7 @@ import {
   type RegisterInput,
   type LoginInput,
   type UserRole,
-} from "@/validations/auth";
+} from "@/features/auth/validations";
 import {
   setSessionCookie,
   deleteSessionCookie,
@@ -16,7 +16,7 @@ import {
   roleToPreference,
   preferenceToRoleAndBadge,
   type SessionPayload,
-} from "@/lib/auth-session";
+} from "@/features/auth/session";
 
 export type SafeUser = {
   id: string;

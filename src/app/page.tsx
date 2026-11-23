@@ -10,10 +10,10 @@ import {
   Filter
 } from "lucide-react";
 import { HeaderNav } from "@/components/HeaderNav";
-import { PromoCard } from "@/components/PromoCard";
-import { PromoDetailSheet } from "@/components/PromoDetailSheet";
+import { PromoCard } from "@/features/promo";
+import { PromoDetailSheet } from "@/features/promo";
 import type { PromoPost } from "@/lib/mock-data";
-import { getPromotionsAction } from "@/actions/promo";
+import { getPromotionsAction } from "@/features/promo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -32,6 +32,8 @@ export default function LandingPage() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedStoreType, setSelectedStoreType] = useState("Semua Toko");
   const [selectedLocation, setSelectedLocation] = useState("Semua Area");
+  const [selectedRadius, setSelectedRadius] = useState(10);
+  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [promos, setPromos] = useState<PromoPost[]>([]);
@@ -42,7 +44,7 @@ export default function LandingPage() {
 
   const filterRef = useRef<HTMLDivElement>(null);
 
-  // Muat promosi dari database server berdasarkan filter, pencarian, dan wilayah
+  // Muat promosi dari database server berdasarkan filter, pencarian, wilayah & radius
   useEffect(() => {
     let isMounted = true;
     const timer = setTimeout(async () => {
@@ -52,6 +54,9 @@ export default function LandingPage() {
           category: selectedCategory,
           storeType: selectedStoreType,
           area: selectedLocation,
+          userLat: userCoords?.lat,
+          userLng: userCoords?.lng,
+          radiusKm: selectedRadius,
         });
         if (isMounted) {
           if (res.success && res.data) {
@@ -71,7 +76,7 @@ export default function LandingPage() {
       isMounted = false;
       clearTimeout(timer);
     };
-  }, [searchQuery, selectedCategory, selectedStoreType, selectedLocation]);
+  }, [searchQuery, selectedCategory, selectedStoreType, selectedLocation, selectedRadius, userCoords]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -113,9 +118,15 @@ export default function LandingPage() {
       {/* Mobile-First Header */}
       <HeaderNav
         selectedLocation={selectedLocation}
-        onLocationChange={setSelectedLocation}
+        onLocationChange={(loc, coords) => {
+          setSelectedLocation(loc);
+          setUserCoords(coords ?? null);
+        }}
+        selectedRadius={selectedRadius}
+        onRadiusChange={(r) => setSelectedRadius(r)}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
+        userCoords={userCoords}
       />
 
       {/* Baris Ringkasan Komunitas */}

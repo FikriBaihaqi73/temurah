@@ -10,6 +10,9 @@ export const discoveryFilterSchema = z.object({
   category: z.string().trim().optional(),
   storeType: z.string().trim().optional(),
   area: z.string().trim().optional(),
+  userLat: z.coerce.number().optional(),
+  userLng: z.coerce.number().optional(),
+  radiusKm: z.coerce.number().nonnegative().max(50000).default(10).optional(),
   sortBy: z
     .enum(["newest", "most_validated", "biggest_discount"], {
       message: "Kriteria pengurutan harus salah satu dari: newest, most_validated, biggest_discount.",

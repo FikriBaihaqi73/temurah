@@ -19,10 +19,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MapLocationModal } from "@/components/ui/map-location-modal";
-import { useAuth } from "@/lib/auth-context";
+import { useAuth } from "@/features/auth";
 import { formatRupiah, cn } from "@/lib/utils";
-import { createPromotionAction } from "@/actions/promo";
-import { uploadPromoImageAction } from "@/actions/upload";
+import { createPromotionAction } from "@/features/promo";
+import { uploadPromoImageAction } from "@/features/upload";
 
 const CATEGORIES = [
   "Kebutuhan Pokok",

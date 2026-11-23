@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUserAction, type SafeUser } from "@/actions/auth";
+import { getCurrentUserAction, type SafeUser } from "@/features/auth/actions";
 import {
   createPromotionSchema,
   updatePromotionSchema,
@@ -10,13 +10,13 @@ import {
   mapFrontendToStockCondition,
   type CreatePromotionInput,
   type UpdatePromotionInput,
-} from "@/validations/promo";
+} from "@/features/promo/validations";
 import type { PromoPost } from "@/lib/mock-data";
 import { PromotionStatus } from "@/generated/prisma/enums";
 import {
   transformPromotionToPromoPost,
   type PromotionWithRelations,
-} from "@/lib/promo-helpers";
+} from "@/features/promo/helpers";
 
 export type PromoActionResult<T = unknown> =
   | { success: true; data: T }
@@ -148,12 +148,12 @@ export async function createPromotionAction(
 
 import {
   getDiscoverPromotionsAction,
-} from "@/actions/discovery";
+} from "@/features/promo/discovery.actions";
 import {
   type DiscoveryFilterInput,
   type PaginationMeta,
   type DiscoverPromotionsResult,
-} from "@/validations/discovery";
+} from "@/features/promo/discovery.validations";
 
 export { getDiscoverPromotionsAction };
 export type { DiscoveryFilterInput, PaginationMeta, DiscoverPromotionsResult };

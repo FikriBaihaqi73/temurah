@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useAuth, UserRole } from "@/lib/auth-context";
+import { useAuth, UserRole } from "@/features/auth";
 import { cn } from "@/lib/utils";
 
 const ROLE_OPTIONS: { id: UserRole; title: string; desc: string; icon: React.ElementType; badgeLabel: string }[] = [

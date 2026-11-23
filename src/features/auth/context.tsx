@@ -8,8 +8,8 @@ import {
   logoutAction,
   getCurrentUserAction,
   type SafeUser,
-} from "@/actions/auth";
-import type { UserRole } from "@/validations/auth";
+} from "@/features/auth/actions";
+import type { UserRole } from "@/features/auth/validations";
 
 export type { UserRole };
 
