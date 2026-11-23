@@ -18,6 +18,7 @@ interface LocationResult {
   address: string;
   lat: number;
   lng: number;
+  type?: string;
 }
 
 interface MapLocationModalProps {
@@ -27,51 +28,6 @@ interface MapLocationModalProps {
   initialLat?: number;
   initialLng?: number;
 }
-
-const POPULAR_LOCATIONS: LocationResult[] = [
-  {
-    name: "Pasar Kranggan",
-    address: "Jl. Poncowinatan, Gowongan, Jetis, Kota Yogyakarta",
-    lat: -7.7829,
-    lng: 110.3671,
-  },
-  {
-    name: "Superindo Kaliurang",
-    address: "Jl. Kaliurang KM 6.2, Caturtunggal, Depok, Sleman",
-    lat: -7.7554,
-    lng: 110.3812,
-  },
-  {
-    name: "Pasar Colombo Sleman",
-    address: "Jl. Kaliurang KM 7.2, Condongcatur, Depok, Sleman",
-    lat: -7.7478,
-    lng: 110.3834,
-  },
-  {
-    name: "Mirota Kampus Babarsari",
-    address: "Jl. Raya Babarsari No. 10, Caturtunggal, Depok, Sleman",
-    lat: -7.7816,
-    lng: 110.4143,
-  },
-  {
-    name: "Pasar Beringharjo",
-    address: "Jl. Margo Mulyo No. 16, Ngupasan, Gondomanan, Yogyakarta",
-    lat: -7.7984,
-    lng: 110.3659,
-  },
-  {
-    name: "Indomaret Point Colombo",
-    address: "Jl. Colombo No. 3, Caturtunggal, Depok, Sleman",
-    lat: -7.7749,
-    lng: 110.3871,
-  },
-  {
-    name: "Pasar Lempuyangan",
-    address: "Jl. Hayam Wuruk, Tegal Panggung, Danurejan, Yogyakarta",
-    lat: -7.7937,
-    lng: 110.3734,
-  },
-];
 
 export function MapLocationModal({
   isOpen,
@@ -83,37 +39,92 @@ export function MapLocationModal({
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLocation, setSelectedLocation] = useState<LocationResult>({
     name: "Pilih / Cari Lokasi Toko",
-    address: "Yogyakarta & Sekitarnya",
+    address: "Memuat peta...",
     lat: initialLat,
     lng: initialLng,
   });
 
+  const [nearbyPlaces, setNearbyPlaces] = useState<LocationResult[]>([]);
+  const [isLoadingNearby, setIsLoadingNearby] = useState(false);
   const [isLocatingUser, setIsLocatingUser] = useState(false);
   const [onlineResults, setOnlineResults] = useState<LocationResult[]>([]);
   const [isSearchingOnline, setIsSearchingOnline] = useState(false);
 
-  const localMatches = useMemo(() => {
-    if (!searchQuery.trim()) return POPULAR_LOCATIONS;
-    return POPULAR_LOCATIONS.filter(
-      (p) =>
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.address.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [searchQuery]);
+  // Ambil tempat/pasar/supermarket sekitar secara dinamis berbasis koordinat GPS user/posisi aktif
+  const fetchNearbyStores = async (lat: number, lng: number) => {
+    try {
+      setIsLoadingNearby(true);
+      // Cari supermarket, pasar, minimarket di sekitar titik koordinat menggunakan Overpass / Nominatim
+      const queryUrl = `https://nominatim.openstreetmap.org/search?format=json&q=supermarket+pasar+minimarket+toko&lat=${lat}&lon=${lng}&bounded=1&viewbox=${lng - 0.04},${lat + 0.04},${lng + 0.04},${lat - 0.04}&limit=10`;
+      const res = await fetch(queryUrl);
+      const data = await res.json();
 
-  const searchResults = localMatches.length > 0 ? localMatches : onlineResults;
+      if (Array.isArray(data) && data.length > 0) {
+        const places: LocationResult[] = data.map((item: { display_name: string; name?: string; lat: string; lon: string; type?: string }) => ({
+          name: item.name || item.display_name.split(",")[0],
+          address: item.display_name,
+          lat: parseFloat(item.lat),
+          lng: parseFloat(item.lon),
+          type: item.type,
+        }));
+        setNearbyPlaces(places);
+      } else {
+        // Fallback jika area sepi: coba pencarian umum POI terdekat
+        const fallbackUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`;
+        const fbRes = await fetch(fallbackUrl);
+        const fbData = await fbRes.json();
+        if (fbData && fbData.display_name) {
+          setNearbyPlaces([
+            {
+              name: fbData.name || fbData.display_name.split(",")[0],
+              address: fbData.display_name,
+              lat,
+              lng,
+            },
+          ]);
+        }
+      }
+    } catch (e) {
+      console.warn("Gagal mengambil tempat populer sekitar:", e);
+    } finally {
+      setIsLoadingNearby(false);
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
+      // Otomatis deteksi GPS user saat buka modal atau gunakan initialLat/Lng
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const { latitude, longitude } = pos.coords;
+            setSelectedLocation((prev) => ({
+              ...prev,
+              lat: latitude,
+              lng: longitude,
+            }));
+            fetchNearbyStores(latitude, longitude);
+          },
+          () => {
+            fetchNearbyStores(initialLat, initialLng);
+          },
+          { timeout: 7000 }
+        );
+      } else {
+        fetchNearbyStores(initialLat, initialLng);
+      }
+
       return () => {
         document.body.style.overflow = "auto";
       };
     }
-  }, [isOpen]);
+  }, [isOpen, initialLat, initialLng]);
 
+  // Pencarian online jika user mengetik nama tempat
   useEffect(() => {
-    if (!searchQuery.trim() || localMatches.length > 0) {
+    if (!searchQuery.trim()) {
+      setOnlineResults([]);
       return;
     }
 
@@ -122,13 +133,13 @@ export function MapLocationModal({
         setIsSearchingOnline(true);
         const res = await fetch(
           `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-            searchQuery + " Yogyakarta"
-          )}&limit=5`
+            searchQuery
+          )}&limit=7`
         );
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
-          const results: LocationResult[] = data.map((item: { display_name: string; lat: string; lon: string }) => ({
-            name: item.display_name.split(",")[0],
+          const results: LocationResult[] = data.map((item: { display_name: string; name?: string; lat: string; lon: string }) => ({
+            name: item.name || item.display_name.split(",")[0],
             address: item.display_name,
             lat: parseFloat(item.lat),
             lng: parseFloat(item.lon),
@@ -142,10 +153,10 @@ export function MapLocationModal({
       } finally {
         setIsSearchingOnline(false);
       }
-    }, 500);
+    }, 450);
 
     return () => clearTimeout(timer);
-  }, [searchQuery, localMatches.length]);
+  }, [searchQuery]);
 
   const handleGetCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -173,7 +184,8 @@ export function MapLocationModal({
           };
 
           setSelectedLocation(userLoc);
-        } catch (err) {
+          fetchNearbyStores(latitude, longitude);
+        } catch {
           setSelectedLocation({
             name: "Lokasi Perangkat Anda",
             address: `Lat: ${latitude.toFixed(4)}, Lng: ${longitude.toFixed(4)}`,
@@ -184,7 +196,7 @@ export function MapLocationModal({
           setIsLocatingUser(false);
         }
       },
-      (err) => {
+      () => {
         setIsLocatingUser(false);
         alert("Gagal mendeteksi lokasi. Pastikan izin akses lokasi aktif di browser Anda.");
       },
@@ -198,6 +210,8 @@ export function MapLocationModal({
   };
 
   if (!isOpen) return null;
+
+  const displayList = searchQuery.trim() ? onlineResults : nearbyPlaces;
 
   const delta = 0.005;
   const bbox = `${selectedLocation.lng - delta}%2C${selectedLocation.lat - delta}%2C${selectedLocation.lng + delta}%2C${selectedLocation.lat + delta}`;
@@ -317,18 +331,28 @@ export function MapLocationModal({
             </div>
           </div>
 
-          {/* Bagian List Hasil Pencarian / Tempat Populer */}
+          {/* Bagian List Hasil Pencarian / Tempat Populer Sekitar Posisi User */}
           <div className="flex-1 sm:w-72 overflow-y-auto p-2.5 space-y-1.5 bg-zinc-950">
-            <p className="px-1 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
-              {searchQuery ? "Hasil Pencarian:" : "Pilih Tempat Populer Sekitar:"}
-            </p>
+            <div className="flex items-center justify-between px-1">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                {searchQuery ? "Hasil Pencarian:" : "Tempat Populer Sekitar Anda:"}
+              </p>
+              {isLoadingNearby && !searchQuery && (
+                <Loader2 className="h-3 w-3 animate-spin text-red-500" />
+              )}
+            </div>
 
-            {searchResults.length > 0 ? (
-              searchResults.map((loc) => {
+            {isLoadingNearby && displayList.length === 0 && !searchQuery ? (
+              <div className="p-6 text-center text-xs text-zinc-500 flex flex-col items-center justify-center gap-2">
+                <Loader2 className="h-5 w-5 animate-spin text-red-500" />
+                <span>Mencari toko/pasar di sekitarmu...</span>
+              </div>
+            ) : displayList.length > 0 ? (
+              displayList.map((loc, idx) => {
                 const isSelected = selectedLocation.name === loc.name;
                 return (
                   <div
-                    key={loc.name}
+                    key={`${loc.name}-${idx}`}
                     onClick={() => setSelectedLocation(loc)}
                     className={cn(
                       "flex items-start gap-2.5 rounded-lg p-2.5 cursor-pointer transition-all border",
@@ -348,7 +372,9 @@ export function MapLocationModal({
               })
             ) : (
               <div className="p-6 text-center text-xs text-zinc-500">
-                Tidak ada lokasi ditemukan untuk &quot;{searchQuery}&quot;.
+                {searchQuery
+                  ? `Tidak ada lokasi ditemukan untuk "${searchQuery}".`
+                  : "Belum ada toko terdeteksi di sekitar titik ini. Gunakan kolom cari atau tombol GPS."}
               </div>
             )}
           </div>

@@ -79,9 +79,14 @@ export async function getDiscoverPromotionsAction(
       storeWhereConditions.storeType = storeTypeEnum;
     }
 
-    const areaWhere = buildAreaWhereClause(input.area);
-    if (areaWhere) {
-      Object.assign(storeWhereConditions, areaWhere);
+    // Filter Wilayah (Store Address): Hanya terapkan jika BUKAN mode "Tanpa Radius" (radiusKm !== 0)
+    // Jika user memilih "Tanpa Radius" (radiusKm === 0), kita ingin menampilkan seluruh promo global/nasional.
+    const isWithoutRadius = input.radiusKm === 0;
+    if (!isWithoutRadius) {
+      const areaWhere = buildAreaWhereClause(input.area);
+      if (areaWhere) {
+        Object.assign(storeWhereConditions, areaWhere);
+      }
     }
 
     if (Object.keys(storeWhereConditions).length > 0) {

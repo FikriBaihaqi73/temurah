@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/features/auth";
 import { USER_ROLES, type UserRole } from "@/features/auth/validations";
-import { uploadPromoImageAction } from "@/features/upload";
+import { uploadAvatarImageAction } from "@/features/upload";
 import { ImageCropModal } from "@/features/auth/components/ImageCropModal";
 import { convertAndCompressToWebP } from "@/lib/image-compression";
 import { getSafeAvatar } from "@/lib/avatar";
@@ -93,12 +93,12 @@ export function EditProfileModal({ isOpen, onClose }: EditProfileModalProps) {
 
     setIsUploadingPhoto(true);
     try {
-      const uploadRes = await uploadPromoImageAction(croppedBase64);
+      const uploadRes = await uploadAvatarImageAction(croppedBase64);
       if (uploadRes.success && uploadRes.url) {
         setAvatar(uploadRes.url);
       }
     } catch (err) {
-      console.error("Gagal mengunggah foto ke Cloudinary:", err);
+      console.warn("Upload avatar error, menggunakan fallback base64:", err);
       // Tetap gunakan croppedBase64 sebagai fallback
     } finally {
       setIsUploadingPhoto(false);

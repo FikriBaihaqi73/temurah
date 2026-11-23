@@ -141,7 +141,7 @@ export default function LandingPage() {
   const activeFiltersCount = 
     (selectedCategory !== "all" ? 1 : 0) + 
     (selectedStoreType !== "Semua Toko" ? 1 : 0) +
-    (selectedLocation !== "Semua Area" ? 1 : 0);
+    (selectedLocation !== "Semua Area" && selectedRadius > 0 ? 1 : 0);
 
   const handleResetFilters = () => {
     setSelectedCategory("all");
@@ -271,7 +271,7 @@ export default function LandingPage() {
         {activeFiltersCount > 0 && (
           <div className="flex flex-wrap items-center gap-1 text-[11px] text-zinc-500">
             <span>Filter:</span>
-            {selectedLocation !== "Semua Area" && (
+            {selectedLocation !== "Semua Area" && selectedRadius > 0 && (
               <Badge variant="secondary" className="gap-1 rounded-sm text-[10px] py-0 px-1.5">
                 {selectedLocation}
                 <button onClick={() => setSelectedLocation("Semua Area")}>×</button>
