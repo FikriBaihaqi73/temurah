@@ -32,7 +32,7 @@ export default function LandingPage() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedStoreType, setSelectedStoreType] = useState("Semua Toko");
   const [selectedLocation, setSelectedLocation] = useState("Semua Area");
-  const [selectedRadius, setSelectedRadius] = useState(10);
+  const [selectedRadius, setSelectedRadius] = useState(0); // 0 = Tanpa radius / seluruh area
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -43,6 +43,43 @@ export default function LandingPage() {
   const [activeDetailPromo, setActiveDetailPromo] = useState<PromoPost | null>(null);
 
   const filterRef = useRef<HTMLDivElement>(null);
+
+  // Minta izin lokasi otomatis saat pertama kali halaman dimuat (Auto-detect Geolocation)
+  useEffect(() => {
+    if (typeof window !== "undefined" && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          try {
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            setUserCoords({ lat, lng });
+
+            // Reverse geocode untuk mendapatkan nama wilayah
+            const res = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
+            );
+            const data = await res.json();
+            const area =
+              data.address?.city_district ||
+              data.address?.city ||
+              data.address?.county ||
+              data.address?.town ||
+              data.address?.suburb ||
+              "Lokasi Sekitar";
+            setSelectedLocation(area);
+          } catch (e) {
+            console.error("Auto geocode error:", e);
+            setSelectedLocation("Lokasi Saya");
+          }
+        },
+        (err) => {
+          // User menolak atau GPS belum aktif -> tetap tampilkan seluruh area tanpa error mengganggu
+          console.log("Izin lokasi belum diberikan atau ditolak:", err.message);
+        },
+        { enableHighAccuracy: true, timeout: 8000 }
+      );
+    }
+  }, []);
 
   // Muat promosi dari database server berdasarkan filter, pencarian, wilayah & radius
   useEffect(() => {
