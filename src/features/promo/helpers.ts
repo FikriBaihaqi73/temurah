@@ -2,6 +2,7 @@ import type { PromoPost, PromoComment } from "@/lib/mock-data";
 import { preferenceToRoleAndBadge } from "@/features/auth/roles";
 import { mapStoreTypeToFrontend } from "@/features/promo/validations";
 import { StoreType, UserPreference } from "@/generated/prisma/enums";
+import { DEFAULT_AVATAR_PLACEHOLDER, getSafeAvatar } from "@/lib/avatar";
 
 // Pusat koordinat standar area Yogyakarta / Sleman untuk hitung jarak
 export const DEFAULT_USER_LAT = -7.7829;
@@ -223,8 +224,7 @@ export function transformPromotionToPromoPost(
       ? Math.round(((origPrice - promoPrice) / origPrice) * 100)
       : 0;
 
-  const defaultAvatar =
-    "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80";
+  const defaultAvatar = DEFAULT_AVATAR_PLACEHOLDER;
 
   const { badge: contributorBadge } = preferenceToRoleAndBadge(
     promo.createdByUser.preference
@@ -255,7 +255,7 @@ export function transformPromotionToPromoPost(
     return {
       id: c.id,
       userName: c.user.name,
-      userAvatar: c.user.avatarUrl || defaultAvatar,
+      userAvatar: getSafeAvatar(c.user.avatarUrl),
       badge: commentBadge,
       content: c.content,
       timeAgo: formatTimeAgo(c.createdAt),
@@ -292,7 +292,7 @@ export function transformPromotionToPromoPost(
     imageUrl: promo.imageUrl,
     contributor: {
       name: promo.createdByUser.name,
-      avatar: promo.createdByUser.avatarUrl || defaultAvatar,
+      avatar: getSafeAvatar(promo.createdByUser.avatarUrl),
       badge: contributorBadge,
     },
     confirmedCount,

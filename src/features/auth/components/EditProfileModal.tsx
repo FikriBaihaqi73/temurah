@@ -19,6 +19,7 @@ import { USER_ROLES, type UserRole } from "@/features/auth/validations";
 import { uploadPromoImageAction } from "@/features/upload";
 import { ImageCropModal } from "@/features/auth/components/ImageCropModal";
 import { convertAndCompressToWebP } from "@/lib/image-compression";
+import { getSafeAvatar } from "@/lib/avatar";
 
 interface EditProfileModalProps {
   isOpen: boolean;
@@ -32,7 +33,7 @@ export function EditProfileModal({ isOpen, onClose }: EditProfileModalProps) {
   // Form states
   const [name, setName] = useState(user?.name || "");
   const [role, setRole] = useState<UserRole>(user?.role || "Pencari Diskon Umum");
-  const [avatar, setAvatar] = useState(user?.avatar || "");
+  const [avatar, setAvatar] = useState(getSafeAvatar(user?.avatar));
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
@@ -210,7 +211,7 @@ export function EditProfileModal({ isOpen, onClose }: EditProfileModalProps) {
             <div className="relative group">
               <div className="h-20 w-20 rounded-full overflow-hidden border-2 border-red-500 shadow-md bg-zinc-100 dark:bg-zinc-800">
                 <img 
-                  src={avatar || user.avatar} 
+                  src={getSafeAvatar(avatar || user.avatar)} 
                   alt={user.name} 
                   className="h-full w-full object-cover" 
                 />

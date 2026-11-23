@@ -15,6 +15,7 @@ import {
 } from "@/features/community/validations";
 import { ValidationType, PromotionStatus } from "@/generated/prisma/enums";
 import { preferenceToRoleAndBadge } from "@/features/auth/roles";
+import { DEFAULT_AVATAR_PLACEHOLDER, getSafeAvatar } from "@/lib/avatar";
 import type { PromoPost, PromoComment } from "@/lib/mock-data";
 import {
   formatTimeAgo,
@@ -489,14 +490,12 @@ export async function addCommentAction(
       },
     });
 
-    const defaultAvatar =
-      "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80";
     const { badge } = preferenceToRoleAndBadge(newComment.user.preference);
 
     const formattedComment: PromoComment = {
       id: newComment.id,
       userName: newComment.user.name,
-      userAvatar: newComment.user.avatarUrl || defaultAvatar,
+      userAvatar: getSafeAvatar(newComment.user.avatarUrl),
       badge,
       content: newComment.content,
       timeAgo: "Baru saja",
@@ -548,15 +547,12 @@ export async function getCommentsAction(
       },
     });
 
-    const defaultAvatar =
-      "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80";
-
     const mappedComments: PromoComment[] = comments.map((c) => {
       const { badge } = preferenceToRoleAndBadge(c.user.preference);
       return {
         id: c.id,
         userName: c.user.name,
-        userAvatar: c.user.avatarUrl || defaultAvatar,
+        userAvatar: getSafeAvatar(c.user.avatarUrl),
         badge,
         content: c.content,
         timeAgo: formatTimeAgo(c.createdAt),

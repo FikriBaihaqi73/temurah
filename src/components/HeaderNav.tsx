@@ -19,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
 import { useAuth, EditProfileModal } from "@/features/auth";
+import { getSafeAvatar } from "@/lib/avatar";
 import { cn } from "@/lib/utils";
 
 const RADIUS_OPTIONS = [
@@ -334,10 +335,10 @@ export function HeaderNav({
               <div className="relative" ref={profileRef}>
                 <button
                   onClick={() => setOpenProfileMenu(!openProfileMenu)}
-                  className="h-7 w-7 rounded-full overflow-hidden border border-zinc-200 dark:border-zinc-700 flex items-center justify-center cursor-pointer"
+                  className="h-7 w-7 rounded-full overflow-hidden border border-zinc-200 dark:border-zinc-700 flex items-center justify-center cursor-pointer bg-zinc-100 dark:bg-zinc-800"
                   title={user.name}
                 >
-                  <img src={user.avatar} alt={user.name} className="h-full w-full object-cover" />
+                  <img src={getSafeAvatar(user.avatar)} alt={user.name} className="h-full w-full object-cover" />
                 </button>
 
                 {openProfileMenu && (

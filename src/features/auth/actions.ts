@@ -19,6 +19,7 @@ import {
   preferenceToRoleAndBadge,
   type SessionPayload,
 } from "@/features/auth/session";
+import { DEFAULT_AVATAR_PLACEHOLDER, getSafeAvatar } from "@/lib/avatar";
 
 export type SafeUser = {
   id: string;
@@ -66,9 +67,8 @@ export async function registerAction(
     const preference = roleToPreference(role);
     const { badge } = preferenceToRoleAndBadge(preference);
 
-    // Default Avatar netral berdasarkan persona
-    const defaultAvatar =
-      "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80";
+    // Default Avatar netral SVG (avatar kosong / siluet netral)
+    const defaultAvatar = DEFAULT_AVATAR_PLACEHOLDER;
 
     // 4. Simpan ke database via Prisma
     const newUser = await prisma.user.create({
@@ -153,9 +153,7 @@ export async function loginAction(
 
     // 4. Transform persona ke role & badge
     const { role, badge } = preferenceToRoleAndBadge(user.preference);
-    const avatar =
-      user.avatarUrl ||
-      "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80";
+    const avatar = getSafeAvatar(user.avatarUrl);
 
     // 5. Buat dan simpan session cookie
     const sessionPayload: SessionPayload = {
@@ -273,9 +271,7 @@ export async function updateProfileAction(
 
     const preference = updatedUser.preference;
     const { role: newRole, badge: newBadge } = preferenceToRoleAndBadge(preference);
-    const finalAvatar =
-      updatedUser.avatarUrl ||
-      "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80";
+    const finalAvatar = getSafeAvatar(updatedUser.avatarUrl);
 
     // Update session cookie dengan data terbaru
     const newSessionPayload: SessionPayload = {
@@ -346,9 +342,7 @@ export async function getCurrentUserAction(): Promise<SafeUser | null> {
       email: user.email,
       role,
       badge,
-      avatar:
-        user.avatarUrl ||
-        "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80",
+      avatar: getSafeAvatar(user.avatarUrl),
     };
   } catch (error) {
     console.error("[getCurrentUserAction error]:", error);
