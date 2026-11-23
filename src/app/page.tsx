@@ -26,7 +26,14 @@ const CATEGORIES = [
   { id: "Pembersih Rumah", label: "Pembersih Rumah" },
 ];
 
-const STORE_TYPES = ["Semua Toko", "Supermarket", "Pasar Tradisional", "Minimarket", "Toko Lokal"];
+const STORE_TYPES = [
+  "Semua Toko",
+  "Supermarket",
+  "Pasar Tradisional",
+  "Minimarket",
+  "Toko Lokal",
+  "Online / Marketplace",
+];
 
 export default function LandingPage() {
   const [selectedCategory, setSelectedCategory] = useState("all");

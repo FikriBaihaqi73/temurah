@@ -6,7 +6,8 @@ import {
   X,
   MessageSquare, 
   MapPin, 
-  Bookmark
+  Bookmark,
+  Globe
 } from "lucide-react";
 import { PromoPost } from "@/lib/mock-data";
 import { formatRupiah, cn } from "@/lib/utils";
@@ -207,8 +208,17 @@ export function PromoCard({ promo, onSelect }: PromoCardProps) {
               {promo.storeName}
             </span>
             <span className="flex items-center gap-0.5 shrink-0">
-              <MapPin className="h-2.5 w-2.5" />
-              {promo.distance}
+              {promo.storeType === "Online / Marketplace" || promo.address.startsWith("http") ? (
+                <>
+                  <Globe className="h-2.5 w-2.5 text-blue-500" />
+                  <span className="text-blue-500 font-semibold">Online</span>
+                </>
+              ) : (
+                <>
+                  <MapPin className="h-2.5 w-2.5" />
+                  <span>{promo.distance}</span>
+                </>
+              )}
             </span>
           </div>
 

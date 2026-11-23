@@ -10,12 +10,14 @@ import {
   MapPin, 
   Store, 
   Calendar, 
-  Clock,
+  Clock, 
   Tag, 
   AlertCircle, 
   CheckCircle2, 
   X,
-  Loader2
+  Loader2,
+  Globe,
+  ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +45,18 @@ const STORE_TYPES = [
   "Minimarket",
   "Toko Lokal / Kelontong",
   "Toko Buah & Sayur",
+  "Toko Online / Marketplace",
+];
+
+const ONLINE_PLATFORMS = [
+  { name: "Shopee", icon: "🟠", placeholder: "Contoh: https://shopee.co.id/... atau Nama Toko Official" },
+  { name: "Tokopedia", icon: "🟢", placeholder: "Contoh: https://tokopedia.com/... atau Tokopedia Official Store" },
+  { name: "Lazada", icon: "🔵", placeholder: "Contoh: https://lazada.co.id/... atau LazMall" },
+  { name: "TikTok Shop", icon: "🎵", placeholder: "Contoh: TikTok Shop @namatoko" },
+  { name: "Blibli", icon: "🔷", placeholder: "Contoh: https://blibli.com/... atau Blibli Mall" },
+  { name: "Bukalapak", icon: "🔴", placeholder: "Contoh: https://bukalapak.com/..." },
+  { name: "Sayurbox / Astro", icon: "🥬", placeholder: "Aplikasi Sayurbox / Astro Quick Commerce" },
+  { name: "Website / Web Store Resmi", icon: "🌐", placeholder: "Contoh: https://toko-resmi.com/promo" },
 ];
 
 export default function SubmitDealPage() {
@@ -59,6 +73,8 @@ export default function SubmitDealPage() {
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("Kebutuhan Pokok");
   const [storeType, setStoreType] = useState("Supermarket");
+  const [onlinePlatform, setOnlinePlatform] = useState("Shopee");
+  const [onlineUrl, setOnlineUrl] = useState("");
   const [storeName, setStoreName] = useState("");
   const [address, setAddress] = useState("");
   const [isMapModalOpen, setIsMapModalOpen] = useState(false);
@@ -137,12 +153,16 @@ export default function SubmitDealPage() {
     e.preventDefault();
     setError("");
 
+    const isOnline = storeType === "Toko Online / Marketplace";
+    const finalStoreName = isOnline ? (storeName.trim() ? `${onlinePlatform} - ${storeName.trim()}` : onlinePlatform) : storeName.trim();
+    const finalAddress = isOnline ? (onlineUrl.trim() || `Toko Online (${onlinePlatform})`) : (address.trim() || storeName.trim());
+
     if (!title.trim()) {
       setError("Nama produk promo wajib diisi.");
       return;
     }
-    if (!storeName.trim()) {
-      setError("Nama toko/pasar wajib diisi.");
+    if (!finalStoreName.trim()) {
+      setError("Nama toko/platform wajib diisi.");
       return;
     }
     if (!promoNum) {
@@ -168,10 +188,10 @@ export default function SubmitDealPage() {
         title: title.trim(),
         category,
         storeType,
-        storeName: storeName.trim(),
-        address: address.trim() || storeName.trim(),
-        lat: selectedCoords?.lat ?? -7.7829,
-        lng: selectedCoords?.lng ?? 110.3671,
+        storeName: finalStoreName,
+        address: finalAddress,
+        lat: isOnline ? 0 : (selectedCoords?.lat ?? -7.7829),
+        lng: isOnline ? 0 : (selectedCoords?.lng ?? 110.3671),
         originalPrice: origNum,
         promoPrice: promoNum,
         expiryDate,
@@ -437,7 +457,7 @@ export default function SubmitDealPage() {
             )}
           </div>
 
-          {/* 3. LOKASI TOKO / PASAR */}
+          {/* 3. LOKASI TOKO / PASAR / PLATFORM ONLINE */}
           <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 space-y-4">
             <h2 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5 border-b border-zinc-800 pb-2">
               <Store className="h-3.5 w-3.5 text-red-500" />
@@ -462,67 +482,130 @@ export default function SubmitDealPage() {
                 </select>
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-zinc-300 mb-1">
-                  Nama Toko / Kios Pasar <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  type="text"
-                  value={storeName}
-                  onChange={(e) => setStoreName(e.target.value)}
-                  placeholder="Contoh: Pasar Kranggan Kios Bu Siti"
-                  required
-                  className="h-10 text-xs bg-zinc-950/80 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-red-500"
-                />
-              </div>
+              {/* TAMPILAN JIKA TOKO ONLINE / MARKETPLACE DIPILIH */}
+              {storeType === "Toko Online / Marketplace" ? (
+                <div>
+                  <label className="block text-xs font-medium text-zinc-300 mb-1">
+                    Pilih Platform Marketplace <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={onlinePlatform}
+                    onChange={(e) => setOnlinePlatform(e.target.value)}
+                    className="w-full h-10 rounded-md border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-xs text-zinc-100 focus:border-red-500 focus:outline-none font-semibold text-red-400"
+                  >
+                    {ONLINE_PLATFORMS.map((p) => (
+                      <option key={p.name} value={p.name} className="bg-zinc-900 text-zinc-100 font-normal">
+                        {p.icon} {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-medium text-zinc-300 mb-1">
+                    Nama Toko / Kios Pasar <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    type="text"
+                    value={storeName}
+                    onChange={(e) => setStoreName(e.target.value)}
+                    placeholder="Contoh: Pasar Kranggan Kios Bu Siti"
+                    required
+                    className="h-10 text-xs bg-zinc-950/80 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-red-500"
+                  />
+                </div>
+              )}
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-zinc-300 mb-1">
-                Alamat / Patokan Jalan (Untuk Buka Peta)
-              </label>
-              <div className="relative">
-                <Input
-                  type="text"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  placeholder="Contoh: Jl. Kaliurang KM 6 No. 12 (Samping Apotek K-24)"
-                  className="h-10 pl-9 text-xs bg-zinc-950/80 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-red-500"
-                />
-                <MapPin className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
-              </div>
-            </div>
+            {/* JIKA TOKO ONLINE: Input Nama Toko Official & Link URL Produk */}
+            {storeType === "Toko Online / Marketplace" ? (
+              <div className="space-y-3 pt-1">
+                <div>
+                  <label className="block text-xs font-medium text-zinc-300 mb-1">
+                    Nama Akun Toko / Official Store di {onlinePlatform} (Opsional)
+                  </label>
+                  <Input
+                    type="text"
+                    value={storeName}
+                    onChange={(e) => setStoreName(e.target.value)}
+                    placeholder={`Contoh: Unilever Official Store di ${onlinePlatform}`}
+                    className="h-10 text-xs bg-zinc-950/80 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-red-500"
+                  />
+                </div>
 
-            {/* TOMBOL PEMICU MODAL PETA LOKASI */}
-            <div className="pt-1">
-              <label className="block text-xs font-medium text-zinc-300 mb-1.5">
-                Titik Peta & Navigasi
-              </label>
-              
-              <button
-                type="button"
-                onClick={() => setIsMapModalOpen(true)}
-                className="group flex w-full items-center justify-between rounded-lg border border-zinc-700 bg-zinc-950/70 p-3 text-left hover:border-red-500 hover:bg-zinc-900 transition-all cursor-pointer"
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-md bg-red-600/20 text-red-500 shrink-0 group-hover:bg-red-600 group-hover:text-white transition-colors">
-                    <MapPin className="h-4 w-4" />
+                <div>
+                  <label className="block text-xs font-medium text-zinc-300 mb-1">
+                    Link / URL Produk atau Promo (Opsional)
+                  </label>
+                  <div className="relative">
+                    <Input
+                      type="url"
+                      value={onlineUrl}
+                      onChange={(e) => setOnlineUrl(e.target.value)}
+                      placeholder={
+                        ONLINE_PLATFORMS.find((p) => p.name === onlinePlatform)?.placeholder ||
+                        "https://..."
+                      }
+                      className="h-10 pl-9 text-xs bg-zinc-950/80 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-red-500"
+                    />
+                    <Globe className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold text-white truncate">
-                      {storeName || "Buka Peta & Pilih Lokasi Toko"}
-                    </p>
-                    <p className="text-[11px] text-zinc-400 truncate">
-                      {address || "Klik untuk cari nama pasar, toko, atau deteksi lokasi GPS saat ini"}
-                    </p>
+                  <p className="text-[11px] text-zinc-500 mt-1">
+                    Warga dapat langsung mengklik tautan ini untuk membeli produk diskon di {onlinePlatform}.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              /* JIKA TOKO FISIK: Input Alamat & Tombol Buka Peta */
+              <>
+                <div>
+                  <label className="block text-xs font-medium text-zinc-300 mb-1">
+                    Alamat / Patokan Jalan (Untuk Buka Peta)
+                  </label>
+                  <div className="relative">
+                    <Input
+                      type="text"
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      placeholder="Contoh: Jl. Kaliurang KM 6 No. 12 (Samping Apotek K-24)"
+                      className="h-10 pl-9 text-xs bg-zinc-950/80 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-red-500"
+                    />
+                    <MapPin className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
                   </div>
                 </div>
 
-                <span className="shrink-0 rounded bg-zinc-800 px-2 py-1 text-[10px] font-semibold text-zinc-300 group-hover:bg-red-600 group-hover:text-white transition-colors ml-2">
-                  Pilih Peta
-                </span>
-              </button>
-            </div>
+                {/* TOMBOL PEMICU MODAL PETA LOKASI */}
+                <div className="pt-1">
+                  <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+                    Titik Peta & Navigasi
+                  </label>
+                  
+                  <button
+                    type="button"
+                    onClick={() => setIsMapModalOpen(true)}
+                    className="group flex w-full items-center justify-between rounded-lg border border-zinc-700 bg-zinc-950/70 p-3 text-left hover:border-red-500 hover:bg-zinc-900 transition-all cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-md bg-red-600/20 text-red-500 shrink-0 group-hover:bg-red-600 group-hover:text-white transition-colors">
+                        <MapPin className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-white truncate">
+                          {storeName || "Buka Peta & Pilih Lokasi Toko"}
+                        </p>
+                        <p className="text-[11px] text-zinc-400 truncate">
+                          {address || "Klik untuk cari nama pasar, toko, atau deteksi lokasi GPS saat ini"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <span className="shrink-0 rounded bg-zinc-800 px-2 py-1 text-[10px] font-semibold text-zinc-300 group-hover:bg-red-600 group-hover:text-white transition-colors ml-2">
+                      Pilih Peta
+                    </span>
+                  </button>
+                </div>
+              </>
+            )}
           </div>
 
           {/* 4. STRUKTUR WAKTU KEDALUWARSA & KONDISI STOK (DATE & TIME PICKER) */}

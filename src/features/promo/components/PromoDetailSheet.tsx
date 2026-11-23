@@ -10,7 +10,9 @@ import {
   Clock, 
   Send,
   Navigation,
-  Trash2
+  Trash2,
+  Globe,
+  ExternalLink
 } from "lucide-react";
 import { PromoPost, PromoComment } from "@/lib/mock-data";
 import { formatRupiah, cn } from "@/lib/utils";
@@ -335,44 +337,85 @@ export function PromoDetailSheet({ promo, onClose, onConfirm, onDelete }: PromoD
             )}
           </div>
 
-          {/* 3. LOKASI DENGAN LIVE OPENSTREETMAP */}
-          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900/90 space-y-2.5">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Lokasi Penemuan</span>
-                <h3 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5 mt-0.5">
-                  <MapPin className="h-3.5 w-3.5 text-red-600 shrink-0" />
-                  <span>{promo.storeName}</span>
-                </h3>
+          {/* 3. LOKASI TOKO FISIK ATAU LINK MARKETPLACE ONLINE */}
+          {promo.storeType === "Online / Marketplace" || promo.address.startsWith("http") ? (
+            <div className="rounded-lg border border-blue-500/30 bg-blue-50/50 p-3.5 dark:border-blue-900/50 dark:bg-blue-950/30 space-y-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                    Platform Online / Marketplace
+                  </span>
+                  <h3 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5 mt-0.5">
+                    <Globe className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                    <span>{promo.storeName}</span>
+                  </h3>
+                </div>
+                <span className="text-[10px] font-bold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/60 px-2 py-0.5 rounded">
+                  Diskon Online
+                </span>
               </div>
-              <span className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 bg-zinc-200/70 dark:bg-zinc-800 px-2 py-0.5 rounded">
-                ~{promo.distance}
-              </span>
+
+              {promo.address.startsWith("http") ? (
+                <div className="space-y-2">
+                  <p className="text-[11px] text-zinc-600 dark:text-zinc-300 truncate font-mono bg-white dark:bg-zinc-900 p-2 rounded border border-zinc-200 dark:border-zinc-800">
+                    {promo.address}
+                  </p>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    onClick={() => window.open(promo.address, "_blank")}
+                    className="w-full text-xs font-bold gap-1.5 bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    <span>Buka Tautan Promo di {promo.storeName.split("-")[0].trim()}</span>
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
+                  Temukan promo ini di aplikasi atau web <strong>{promo.storeName}</strong>.
+                </p>
+              )}
             </div>
+          ) : (
+            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900/90 space-y-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Lokasi Penemuan</span>
+                  <h3 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5 mt-0.5">
+                    <MapPin className="h-3.5 w-3.5 text-red-600 shrink-0" />
+                    <span>{promo.storeName}</span>
+                  </h3>
+                </div>
+                <span className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 bg-zinc-200/70 dark:bg-zinc-800 px-2 py-0.5 rounded">
+                  ~{promo.distance}
+                </span>
+              </div>
 
-            <p className="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
-              {promo.address}
-            </p>
+              <p className="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                {promo.address}
+              </p>
 
-            <OpenStreetMapViewer
-              lat={promo.lat || -7.7829}
-              lng={promo.lng || 110.3671}
-              title={promo.storeName}
-              address={promo.address}
-              className="h-36 sm:h-44"
-            />
+              <OpenStreetMapViewer
+                lat={promo.lat || -7.7829}
+                lng={promo.lng || 110.3671}
+                title={promo.storeName}
+                address={promo.address}
+                className="h-36 sm:h-44"
+              />
 
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleOpenGoogleMaps}
-              className="w-full text-xs font-semibold gap-1.5 border-zinc-300 dark:border-zinc-700"
-            >
-              <Navigation className="h-3.5 w-3.5 text-red-600" />
-              <span>Petunjuk Arah Rute Jalan</span>
-            </Button>
-          </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleOpenGoogleMaps}
+                className="w-full text-xs font-semibold gap-1.5 border-zinc-300 dark:border-zinc-700 cursor-pointer"
+              >
+                <Navigation className="h-3.5 w-3.5 text-red-600" />
+                <span>Petunjuk Arah Rute Jalan</span>
+              </Button>
+            </div>
+          )}
 
           {/* 4. VALIDASI KOMUNITAS: VALID VS TIDAK VALID */}
           <div className="rounded border border-zinc-200 p-3 dark:border-zinc-800 space-y-2.5">

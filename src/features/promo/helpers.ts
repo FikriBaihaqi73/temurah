@@ -278,7 +278,7 @@ export function transformPromotionToPromoPost(
     title: promo.productName,
     category: promo.category.name,
     storeName: promo.store.name,
-    storeType: mapStoreTypeToFrontend(promo.store.storeType),
+    storeType: mapStoreTypeToFrontend(promo.store.storeType, promo.store.address),
     location: promo.store.address.split(",")[0] || promo.store.name,
     address: promo.store.address,
     lat: promo.store.latitude,

@@ -141,8 +141,13 @@ export function mapFrontendToStoreType(frontendType: string): StoreType {
 
 // Helper mapping: Database StoreType enum -> Frontend store type string
 export function mapStoreTypeToFrontend(
-  storeType: StoreType
+  storeType: StoreType,
+  address?: string
 ): "Supermarket" | "Pasar Tradisional" | "Minimarket" | "Online / Marketplace" | "Toko Lokal" {
+  if (address && (address.startsWith("http://") || address.startsWith("https://") || address.includes("Online") || address.includes("Marketplace"))) {
+    return "Online / Marketplace";
+  }
+
   switch (storeType) {
     case StoreType.SUPERMARKET:
       return "Supermarket";
