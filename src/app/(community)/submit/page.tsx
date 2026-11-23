@@ -14,7 +14,8 @@ import {
   Tag, 
   AlertCircle, 
   CheckCircle2, 
-  X
+  X,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,6 +80,8 @@ export default function SubmitDealPage() {
 
   const [notes, setNotes] = useState("");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [cloudinaryUrl, setCloudinaryUrl] = useState<string | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -101,22 +104,32 @@ export default function SubmitDealPage() {
         setError("Ukuran foto maksimal 10 MB.");
         return;
       }
+      setError("");
+      setIsUploadingPhoto(true);
       try {
-        // Konversi dan kompresi otomatis ke format WebP sebelum di-preview / diunggah
+        // 1. Konversi dan kompresi otomatis ke format WebP di client
         const webpCompressed = await convertAndCompressToWebP(file, 1400, 1400, 0.82);
         setImagePreview(webpCompressed);
-      } catch {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setImagePreview(reader.result as string);
-        };
-        reader.readAsDataURL(file);
+
+        // 2. Langsung upload ke Cloudinary secara otomatis
+        const uploadRes = await uploadPromoImageAction(webpCompressed);
+        if (uploadRes.success && uploadRes.url) {
+          setCloudinaryUrl(uploadRes.url);
+        } else {
+          setError(uploadRes.error || "Gagal mengunggah foto ke Cloudinary.");
+        }
+      } catch (err) {
+        console.error("Gagal kompresi / upload foto:", err);
+        setError("Terjadi kesalahan saat memproses foto.");
+      } finally {
+        setIsUploadingPhoto(false);
       }
     }
   };
 
   const handleUseSamplePhoto = (url: string) => {
     setImagePreview(url);
+    setCloudinaryUrl(url);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -139,26 +152,17 @@ export default function SubmitDealPage() {
       setError("Harga promo harus lebih murah dari harga normal.");
       return;
     }
-    if (!imagePreview) {
+    if (isUploadingPhoto) {
+      setError("Harap tunggu hingga proses upload foto ke Cloudinary selesai.");
+      return;
+    }
+    if (!imagePreview || !cloudinaryUrl) {
       setError("Wajib menyertakan bukti foto label promo rak / struk toko.");
       return;
     }
 
     setIsSubmitting(true);
     try {
-      let finalImageUrl = imagePreview;
-
-      // Jika gambar berupa data lokal Base64, unggah ke Cloudinary
-      if (imagePreview.startsWith("data:")) {
-        const uploadRes = await uploadPromoImageAction(imagePreview);
-        if (!uploadRes.success || !uploadRes.url) {
-          setIsSubmitting(false);
-          setError(uploadRes.error || "Gagal mengunggah foto ke Cloudinary.");
-          return;
-        }
-        finalImageUrl = uploadRes.url;
-      }
-
       const result = await createPromotionAction({
         title: title.trim(),
         category,
@@ -173,7 +177,7 @@ export default function SubmitDealPage() {
         expiryTime,
         stockCondition,
         notes: notes.trim(),
-        imageUrl: finalImageUrl,
+        imageUrl: cloudinaryUrl,
       });
 
       if (result.success) {
@@ -272,7 +276,13 @@ export default function SubmitDealPage() {
               className="hidden"
             />
 
-            {imagePreview ? (
+            {isUploadingPhoto ? (
+              <div className="relative aspect-16/9 w-full rounded-lg overflow-hidden border border-red-500/50 bg-zinc-950 flex flex-col items-center justify-center p-6 text-center animate-pulse">
+                <Loader2 className="h-8 w-8 text-red-500 animate-spin mb-2" />
+                <p className="text-xs font-bold text-white">Mengunggah Foto ke Cloudinary...</p>
+                <p className="text-[11px] text-zinc-400 mt-0.5">Mohon tunggu, foto sedang dikonversi ke WebP & dikompres.</p>
+              </div>
+            ) : imagePreview ? (
               <div className="relative aspect-16/9 w-full rounded-lg overflow-hidden border border-zinc-700 bg-zinc-950">
                 <img
                   src={imagePreview}
@@ -281,7 +291,10 @@ export default function SubmitDealPage() {
                 />
                 <button
                   type="button"
-                  onClick={() => setImagePreview(null)}
+                  onClick={() => {
+                    setImagePreview(null);
+                    setCloudinaryUrl(null);
+                  }}
                   className="absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-full bg-zinc-900/90 text-white hover:bg-red-600 transition-colors"
                   title="Hapus foto"
                 >
@@ -289,7 +302,7 @@ export default function SubmitDealPage() {
                 </button>
                 <div className="absolute bottom-2 left-2 flex items-center gap-1 rounded bg-emerald-600/90 px-2 py-0.5 text-[10px] font-semibold text-white">
                   <CheckCircle2 className="h-3 w-3" />
-                  <span>Foto Terlampir</span>
+                  <span>Foto Terunggah</span>
                 </div>
               </div>
             ) : (
@@ -606,10 +619,19 @@ export default function SubmitDealPage() {
             <Button
               type="submit"
               variant="primary"
-              disabled={isSubmitting || isSuccess}
-              className="w-full h-11 text-xs font-bold bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-600/25"
+              disabled={isSubmitting || isSuccess || isUploadingPhoto}
+              className="w-full h-11 text-xs font-bold bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-600/25 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isSubmitting ? "Mengunggah Bukti & Menerbitkan Promo..." : "Publikasikan Promo ke Warga"}
+              {isSubmitting ? (
+                "Menerbitkan Promo..."
+              ) : isUploadingPhoto ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Sedang Mengunggah Foto... (Tunggu Sebentar)</span>
+                </span>
+              ) : (
+                "Publikasikan Promo ke Warga"
+              )}
             </Button>
             <p className="mt-2 text-center text-[11px] text-zinc-500">
               Dengan mengunggah, kamu berkontribusi menjaga transparansi harga kebutuhan warga lokal.

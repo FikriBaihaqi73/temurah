@@ -107,6 +107,7 @@ export function EditProfileModal({ isOpen, onClose }: EditProfileModalProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isUploadingPhoto) return; // Cegah submit saat foto sedang diunggah
     setErrorMessage("");
     setSuccessMessage("");
 
@@ -170,9 +171,20 @@ export function EditProfileModal({ isOpen, onClose }: EditProfileModalProps) {
 
       {/* Modal Dialog */}
       <div className="relative z-10 w-full max-w-md max-h-[90vh] overflow-y-auto rounded-xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 animate-in zoom-in-95 duration-150">
+        {/* Banner Status Upload Foto */}
+        {isUploadingPhoto && (
+          <div className="mb-3.5 flex items-center justify-between rounded-lg border border-red-200 bg-red-50/90 p-3 text-xs text-red-700 dark:border-red-900/60 dark:bg-red-950/60 dark:text-red-300 animate-pulse">
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin text-red-600" />
+              <span className="font-medium">Mengunggah foto ke Cloudinary... Harap tunggu.</span>
+            </div>
+          </div>
+        )}
+
         <button
           onClick={onClose}
-          className="absolute right-3.5 top-3.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1"
+          disabled={isUploadingPhoto || isSubmitting}
+          className="absolute right-3.5 top-3.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <X className="h-4 w-4" />
         </button>
@@ -345,7 +357,7 @@ export function EditProfileModal({ isOpen, onClose }: EditProfileModalProps) {
               variant="outline"
               size="sm"
               onClick={onClose}
-              disabled={isSubmitting}
+              disabled={isSubmitting || isUploadingPhoto}
               className="text-xs h-8"
             >
               Batal
@@ -361,6 +373,11 @@ export function EditProfileModal({ isOpen, onClose }: EditProfileModalProps) {
                 <>
                   <Loader2 className="h-3 w-3 animate-spin mr-1.5" />
                   <span>Menyimpan...</span>
+                </>
+              ) : isUploadingPhoto ? (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin mr-1.5" />
+                  <span>Mengunggah Foto...</span>
                 </>
               ) : (
                 "Simpan Perubahan"
