@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { 
   Tag, 
@@ -55,17 +56,16 @@ export default function LoginPage() {
 
         {/* Top Header */}
         <div className="relative z-10 flex items-center justify-between">
-          <Link href="/" className="inline-flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-600 text-white font-bold text-sm shadow-md shadow-red-600/30">
-              <Tag className="h-5 w-5" />
-            </div>
-            <div>
-              <span className="text-lg font-black tracking-tight text-white block leading-none">
-                Temurah<span className="text-red-500">.</span>
-              </span>
-              <span className="text-[10px] text-zinc-400 font-mono tracking-wide">
-                KOMUNITAS DISKON LOKAL
-              </span>
+          <Link href="/" className="inline-flex items-center cursor-pointer">
+            <div className="relative h-9 w-36 shrink-0">
+              <Image
+                src="/temurah-logo.webp"
+                alt="Temurah"
+                fill
+                sizes="144px"
+                className="object-contain object-left"
+                priority
+              />
             </div>
           </Link>
 
@@ -164,11 +164,16 @@ export default function LoginPage() {
             <span>Kembali ke Beranda</span>
           </Link>
 
-          <div className="lg:hidden flex items-center gap-1.5">
-            <div className="flex h-5 w-5 items-center justify-center rounded bg-red-600 text-white font-bold text-[10px]">
-              <Tag className="h-3 w-3" />
+          <div className="lg:hidden flex items-center">
+            <div className="relative h-7 w-28 shrink-0">
+              <Image
+                src="/temurah-logo.webp"
+                alt="Temurah"
+                fill
+                sizes="112px"
+                className="object-contain object-right"
+              />
             </div>
-            <span className="text-xs font-bold text-white">Temurah</span>
           </div>
         </div>
 

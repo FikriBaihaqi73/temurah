@@ -6,6 +6,15 @@ import { AuthModal } from "@/features/auth";
 export const metadata: Metadata = {
   title: "Temurah - Komunitas Berbagi Diskon & Promo Lokal",
   description: "Tempat warga berbagi dan memvalidasi informasi diskon harga pasar dan supermarket terdekat.",
+  icons: {
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/temurah-icon.webp", type: "image/webp" },
+      { url: "/icon.png", type: "image/png" },
+    ],
+    shortcut: ["/favicon.ico"],
+    apple: ["/temurah-icon.webp"],
+  },
 };
 
 export default function RootLayout({

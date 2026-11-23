@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { 
   MapPin, 
   Check, 
@@ -128,13 +129,17 @@ export function HeaderNav({
       <div className="mx-auto flex h-12 sm:h-14 max-w-7xl items-center justify-between gap-2 px-3 sm:px-6">
         {/* Brand & Location Trigger */}
         <div className="flex items-center gap-2">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded bg-red-600 text-white font-bold text-xs shadow-xs">
-              <Tag className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          <Link href="/" className="flex items-center gap-1.5 cursor-pointer py-1">
+            <div className="relative h-7 w-28 sm:h-8 sm:w-32 shrink-0">
+              <Image
+                src="/temurah-logo.webp"
+                alt="Temurah"
+                fill
+                sizes="(max-width: 640px) 112px, 128px"
+                className="object-contain object-left"
+                priority
+              />
             </div>
-            <span className="text-sm sm:text-base font-black tracking-tight text-zinc-900 dark:text-zinc-50">
-              Temurah
-            </span>
           </Link>
 
           {/* Tombol Deteksi Lokasi & Pilihan Radius Popover */}
