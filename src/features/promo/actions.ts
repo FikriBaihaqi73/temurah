@@ -452,7 +452,7 @@ export async function deletePromotionAction(
       };
     }
 
-    if (promo.createdByUserId !== currentUser.id) {
+    if (promo.createdByUserId !== currentUser.id && !currentUser.isAdmin) {
       return {
         success: false,
         error: "FORBIDDEN: Anda hanya dapat menghapus promosi yang Anda unggah sendiri.",

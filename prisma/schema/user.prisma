@@ -28,6 +28,7 @@ model User {
   validationLogs PromotionValidationLog[]
   comments       Comment[]
   bookmarks      UserBookmark[]
+  reportsCreated Report[]       @relation("ReportsCreated")
 
   @@index([deletedAt])
   @@index([isBanned])

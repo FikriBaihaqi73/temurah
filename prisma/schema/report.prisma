@@ -1,0 +1,45 @@
+enum ReportType {
+  PROMOTION
+  COMMENT
+
+  @@map("report_type")
+}
+
+enum ReportStatus {
+  PENDING
+  RESOLVED
+  DISMISSED
+
+  @@map("report_status")
+}
+
+model Report {
+  id               String       @id @default(uuid()) @db.Uuid
+  type             ReportType
+  reporterId       String       @map("reporter_id") @db.Uuid
+  reason           String       @db.VarChar(100)
+  description      String?      @db.Text
+  status           ReportStatus @default(PENDING)
+  actionNotes      String?      @map("action_notes") @db.Text
+
+  // Snapshot informasi konten yang dilaporkan
+  targetTitle      String?      @map("target_title") @db.VarChar(255)
+  targetAuthorName String?      @map("target_author_name") @db.VarChar(120)
+  targetAuthorId   String?      @map("target_author_id") @db.Uuid
+
+  promotionId      String?      @map("promotion_id") @db.Uuid
+  commentId        String?      @map("comment_id") @db.Uuid
+
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  reporter         User         @relation("ReportsCreated", fields: [reporterId], references: [id], onDelete: Cascade)
+  promotion        Promotion?   @relation(fields: [promotionId], references: [id], onDelete: SetNull)
+  comment          Comment?     @relation(fields: [commentId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([type, status])
+  @@index([promotionId])
+  @@index([commentId])
+  @@map("reports")
+}

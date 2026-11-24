@@ -12,12 +12,14 @@ import {
   Navigation,
   Trash2,
   Globe,
-  ExternalLink
+  ExternalLink,
+  Flag
 } from "lucide-react";
 import { PromoPost, PromoComment } from "@/lib/mock-data";
 import { formatRupiah, cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { OpenStreetMapViewer } from "@/components/ui/open-street-map";
+import { ReportModal } from "@/components/ui/report-modal";
 import { useAuth } from "@/features/auth";
 import { deletePromotionAction } from "@/features/promo";
 import {
@@ -46,6 +48,18 @@ export function PromoDetailSheet({ promo, onClose, onConfirm, onDelete }: PromoD
   const [prevPromoId, setPrevPromoId] = useState(promo?.id);
   const [isVoting, setIsVoting] = useState(false);
   const [isCommenting, setIsCommenting] = useState(false);
+
+  // State Modal Laporan
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [reportTarget, setReportTarget] = useState<{
+    type: "PROMOTION" | "COMMENT";
+    id: string;
+    title: string;
+  }>({
+    type: "PROMOTION",
+    id: "",
+    title: "",
+  });
 
   if (promo && promo.id !== prevPromoId) {
     setPrevPromoId(promo.id);
@@ -260,7 +274,27 @@ export function PromoDetailSheet({ promo, onClose, onConfirm, onDelete }: PromoD
           </div>
 
           <div className="flex items-center gap-1.5">
-            {user && (user.name === promo.contributor.name || user.id === (promo.contributor as { id?: string }).id) && (
+            {/* Tombol Laporkan Promo */}
+            <button
+              type="button"
+              onClick={() => {
+                requireAuth(() => {
+                  setReportTarget({
+                    type: "PROMOTION",
+                    id: promo.id,
+                    title: `${promo.title} (${promo.storeName})`,
+                  });
+                  setIsReportModalOpen(true);
+                }, "Masuk untuk melaporkan postingan promo.");
+              }}
+              className="flex items-center gap-1 text-[11px] font-medium text-zinc-500 hover:text-amber-600 dark:text-zinc-400 dark:hover:text-amber-400 px-2 py-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+              title="Laporkan promo jika palsu, habis, atau melanggar"
+            >
+              <Flag className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Laporkan</span>
+            </button>
+
+            {user && (user.name === promo.contributor.name || user.id === (promo.contributor as { id?: string }).id || user.isAdmin) && (
               <button
                 type="button"
                 onClick={handleDeletePromo}
@@ -498,16 +532,34 @@ export function PromoDetailSheet({ promo, onClose, onConfirm, onDelete }: PromoD
                         {c.badge}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       <span className="text-[10px] text-zinc-400">{c.timeAgo}</span>
-                      {user && user.name === c.userName && (
+                      {user && (user.name === c.userName || user.isAdmin) ? (
                         <button
                           type="button"
                           onClick={() => handleDeleteComment(c.id)}
-                          className="text-zinc-400 hover:text-red-500 transition-colors p-0.5"
-                          title="Hapus komentar saya"
+                          className="text-zinc-400 hover:text-red-500 transition-colors p-0.5 cursor-pointer"
+                          title="Hapus komentar"
                         >
                           <Trash2 className="h-3 w-3" />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            requireAuth(() => {
+                              setReportTarget({
+                                type: "COMMENT",
+                                id: c.id,
+                                title: `Komentar oleh ${c.userName}: "${c.content.slice(0, 50)}..."`,
+                              });
+                              setIsReportModalOpen(true);
+                            }, "Masuk untuk melaporkan komentar.");
+                          }}
+                          className="text-zinc-400 hover:text-amber-500 transition-colors p-0.5 cursor-pointer"
+                          title="Laporkan komentar ini"
+                        >
+                          <Flag className="h-3 w-3" />
                         </button>
                       )}
                     </div>
@@ -552,6 +604,15 @@ export function PromoDetailSheet({ promo, onClose, onConfirm, onDelete }: PromoD
         </div>
 
       </div>
+
+      {/* Modal Dialog Pelaporan Konten */}
+      <ReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        type={reportTarget.type}
+        targetId={reportTarget.id}
+        targetTitle={reportTarget.title}
+      />
     </div>
   );
 }

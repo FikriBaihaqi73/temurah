@@ -8,6 +8,7 @@ model Comment {
 
   promotion Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   user      User      @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  reports   Report[]
 
   @@index([promotionId, createdAt(sort: Desc)])
   @@index([userId])

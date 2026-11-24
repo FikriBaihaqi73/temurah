@@ -39,6 +39,7 @@ model Promotion {
   validationLogs PromotionValidationLog[]
   comments       Comment[]
   bookmarks      UserBookmark[]
+  reports        Report[]
 
   @@index([status, endsAt(sort: Desc)])
   @@index([categoryId, status, createdAt(sort: Desc)])

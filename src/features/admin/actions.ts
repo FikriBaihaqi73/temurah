@@ -711,3 +711,175 @@ export async function deleteStoreCategoryAction(id: string): Promise<{ success: 
   }
 }
 
+/**
+ * 7. Master Moderasi Laporan Warga (Reports Management)
+ */
+export interface AdminReportItem {
+  id: string;
+  type: "PROMOTION" | "COMMENT";
+  reason: string;
+  description: string | null;
+  status: "PENDING" | "RESOLVED" | "DISMISSED";
+  actionNotes: string | null;
+  targetTitle: string | null;
+  targetAuthorName: string | null;
+  targetAuthorId: string | null;
+  promotionId: string | null;
+  commentId: string | null;
+  createdAt: string;
+  reporter: {
+    id: string;
+    name: string;
+    email: string;
+  };
+}
+
+export async function getAdminReportsAction(): Promise<{
+  success: boolean;
+  data: AdminReportItem[];
+  error?: string;
+}> {
+  try {
+    await checkAdminAccess();
+
+    const reports = await prisma.report.findMany({
+      include: {
+        reporter: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const data: AdminReportItem[] = reports.map((r) => ({
+      id: r.id,
+      type: r.type,
+      reason: r.reason,
+      description: r.description,
+      status: r.status,
+      actionNotes: r.actionNotes,
+      targetTitle: r.targetTitle,
+      targetAuthorName: r.targetAuthorName,
+      targetAuthorId: r.targetAuthorId,
+      promotionId: r.promotionId,
+      commentId: r.commentId,
+      createdAt: r.createdAt.toISOString(),
+      reporter: {
+        id: r.reporter.id,
+        name: r.reporter.name,
+        email: r.reporter.email,
+      },
+    }));
+
+    return { success: true, data };
+  } catch (error: any) {
+    return { success: false, data: [], error: error.message || "Gagal memuat daftar laporan." };
+  }
+}
+
+export async function resolveReportAction(
+  reportId: string,
+  actionNotes?: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await checkAdminAccess();
+
+    await prisma.report.update({
+      where: { id: reportId },
+      data: {
+        status: "RESOLVED",
+        actionNotes: actionNotes || "Laporan telah ditangani oleh admin.",
+      },
+    });
+
+    revalidatePath("/admin");
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Gagal memperbarui status laporan." };
+  }
+}
+
+export async function dismissReportAction(
+  reportId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await checkAdminAccess();
+
+    await prisma.report.update({
+      where: { id: reportId },
+      data: {
+        status: "DISMISSED",
+        actionNotes: "Laporan diabaikan setelah ditinjau.",
+      },
+    });
+
+    revalidatePath("/admin");
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Gagal mengabaikan laporan." };
+  }
+}
+
+export async function adminDeletePromotionAction(
+  promotionId: string,
+  reportId?: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await checkAdminAccess();
+
+    await prisma.promotion.delete({
+      where: { id: promotionId },
+    });
+
+    if (reportId) {
+      await prisma.report.update({
+        where: { id: reportId },
+        data: {
+          status: "RESOLVED",
+          actionNotes: "Postingan promosi telah dihapus oleh Administrator.",
+        },
+      });
+    }
+
+    revalidatePath("/admin");
+    revalidatePath("/");
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Gagal menghapus postingan promosi." };
+  }
+}
+
+export async function adminDeleteCommentAction(
+  commentId: string,
+  reportId?: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await checkAdminAccess();
+
+    await prisma.comment.delete({
+      where: { id: commentId },
+    });
+
+    if (reportId) {
+      await prisma.report.update({
+        where: { id: reportId },
+        data: {
+          status: "RESOLVED",
+          actionNotes: "Komentar telah dihapus oleh Administrator.",
+        },
+      });
+    }
+
+    revalidatePath("/admin");
+    revalidatePath("/");
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Gagal menghapus komentar." };
+  }
+}
+
+

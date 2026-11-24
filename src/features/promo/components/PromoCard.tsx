@@ -7,12 +7,14 @@ import {
   MessageSquare, 
   MapPin, 
   Bookmark,
-  Globe
+  Globe,
+  Flag
 } from "lucide-react";
 import { PromoPost } from "@/lib/mock-data";
 import { formatRupiah, cn } from "@/lib/utils";
 import { useAuth } from "@/features/auth";
 import { toggleValidationAction, toggleBookmarkAction } from "@/features/community";
+import { ReportModal } from "@/components/ui/report-modal";
 
 interface PromoCardProps {
   promo: PromoPost;
@@ -22,7 +24,7 @@ interface PromoCardProps {
 export function PromoCard({ promo, onSelect }: PromoCardProps) {
   const { requireAuth } = useAuth();
   
-  // Status voting user & bookmark
+  // Status voting user & bookmark & report
   const [userVote, setUserVote] = useState<"valid" | "invalid" | null>(promo.userVote ?? null);
   const [validCount, setValidCount] = useState(promo.confirmedCount);
   const [invalidCount, setInvalidCount] = useState(promo.expiredReportsCount || 0);
@@ -30,6 +32,7 @@ export function PromoCard({ promo, onSelect }: PromoCardProps) {
   const [prevPromoId, setPrevPromoId] = useState(promo.id);
   const [isVoting, setIsVoting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
   if (promo.id !== prevPromoId) {
     setPrevPromoId(promo.id);
@@ -160,40 +163,56 @@ export function PromoCard({ promo, onSelect }: PromoCardProps) {
   return (
     <div 
       onClick={() => onSelect && onSelect(promo)}
-      className="group flex h-full flex-col border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 transition-all cursor-pointer hover:border-zinc-400 dark:hover:border-zinc-700 active:scale-[0.99]"
+      className="group flex h-full flex-col rounded-xl overflow-hidden border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 shadow-xs hover:shadow-md transition-all cursor-pointer hover:border-zinc-400 dark:hover:border-zinc-700 active:scale-[0.98]"
     >
       {/* Gambar Thumbnail (Rasio 1:1 Presisi) */}
       <div className="relative w-full aspect-square overflow-hidden bg-zinc-100 dark:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
         <img
           src={promo.imageUrl}
           alt={promo.title}
-          className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-102"
+          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           loading="lazy"
         />
 
         {/* Badge Diskon */}
-        <div className="absolute top-1.5 left-1.5">
-          <span className="bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-xs leading-none">
+        <div className="absolute top-2 left-2 z-10">
+          <span className="bg-red-600 text-white text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-md shadow-xs leading-none">
             -{promo.discountPercentage}%
           </span>
         </div>
 
-        {/* Bookmark Mini */}
-        <button
-          type="button"
-          onClick={toggleBookmark}
-          className={cn(
-            "absolute top-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded bg-white/90 border border-zinc-200/80 dark:bg-zinc-900/90 dark:border-zinc-700",
-            saved ? "text-red-600" : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400"
-          )}
-          title="Simpan"
-        >
-          <Bookmark className={cn("h-3 w-3", saved && "fill-current")} />
-        </button>
+        {/* Action Overlay: Bookmark & Laporkan */}
+        <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
+          {/* Tombol Laporkan */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              requireAuth(() => setIsReportModalOpen(true), "Masuk untuk melaporkan konten ini.");
+            }}
+            className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-full bg-white/90 backdrop-blur-xs text-zinc-500 hover:text-red-600 hover:bg-white dark:bg-zinc-900/90 dark:text-zinc-400 dark:hover:text-red-400 border border-zinc-200/60 dark:border-zinc-700 shadow-xs transition-colors"
+            title="Laporkan promo ini"
+          >
+            <Flag className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+          </button>
+
+          {/* Tombol Simpan / Bookmark */}
+          <button
+            type="button"
+            onClick={toggleBookmark}
+            className={cn(
+              "flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-full bg-white/90 backdrop-blur-xs border border-zinc-200/60 dark:bg-zinc-900/90 dark:border-zinc-700 shadow-xs transition-colors",
+              saved ? "text-red-600 dark:text-red-500" : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400"
+            )}
+            title="Simpan"
+          >
+            <Bookmark className={cn("h-3 w-3 sm:h-3.5 sm:w-3.5", saved && "fill-current")} />
+          </button>
+        </div>
 
         {/* Tipe Toko Mini */}
-        <div className="absolute bottom-1.5 left-1.5">
-          <span className="bg-zinc-900/80 text-zinc-100 text-[9px] px-1 py-0.5 rounded-xs">
+        <div className="absolute bottom-2 left-2 z-10">
+          <span className="bg-zinc-900/80 backdrop-blur-xs text-zinc-100 text-[9px] sm:text-[10px] font-medium px-1.5 py-0.5 rounded-sm">
             {promo.storeType}
           </span>
         </div>
@@ -203,7 +222,7 @@ export function PromoCard({ promo, onSelect }: PromoCardProps) {
       <div className="flex flex-1 flex-col justify-between p-2.5 sm:p-3">
         <div>
           {/* Toko & Jarak */}
-          <div className="flex items-center justify-between text-[10px] text-zinc-500 dark:text-zinc-400 mb-1 gap-1">
+          <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-zinc-500 dark:text-zinc-400 mb-1 gap-1">
             <span className="font-medium text-zinc-700 dark:text-zinc-300 truncate">
               {promo.storeName}
             </span>
@@ -223,16 +242,16 @@ export function PromoCard({ promo, onSelect }: PromoCardProps) {
           </div>
 
           {/* Judul Produk */}
-          <h3 className="line-clamp-2 h-7 sm:h-8 text-[11px] sm:text-xs font-semibold text-zinc-900 dark:text-zinc-100 group-hover:underline leading-snug">
+          <h3 className="line-clamp-2 h-7 sm:h-8 text-[11px] sm:text-xs font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors leading-snug">
             {promo.title}
           </h3>
 
           {/* Harga */}
-          <div className="mt-1.5 flex flex-wrap items-baseline gap-1">
+          <div className="mt-1.5 flex flex-wrap items-baseline gap-1.5">
             <span className="text-xs sm:text-sm font-bold text-red-600 dark:text-red-500">
               {formatRupiah(promo.promoPrice)}
             </span>
-            <span className="text-[9px] sm:text-[10px] text-zinc-400 line-through">
+            <span className="text-[10px] text-zinc-400 line-through">
               {formatRupiah(promo.originalPrice)}
             </span>
           </div>
@@ -240,12 +259,12 @@ export function PromoCard({ promo, onSelect }: PromoCardProps) {
 
         {/* Action & Konfirmasi Komunitas */}
         <div className="mt-2.5 pt-2 border-t border-zinc-100 dark:border-zinc-800">
-          <div className="flex items-center justify-between text-[10px] text-zinc-500 mb-1.5">
-            <span className="truncate max-w-[90px] sm:max-w-[120px]">
+          <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-zinc-500 mb-2">
+            <span className="truncate max-w-[85px] sm:max-w-[120px]">
               Oleh: <strong className="font-medium text-zinc-700 dark:text-zinc-300">{promo.contributor.name}</strong>
             </span>
-            <span className="flex items-center gap-0.5">
-              <MessageSquare className="h-2.5 w-2.5" />
+            <span className="flex items-center gap-1">
+              <MessageSquare className="h-3 w-3" />
               {promo.commentsCount}
             </span>
           </div>
@@ -257,14 +276,14 @@ export function PromoCard({ promo, onSelect }: PromoCardProps) {
               type="button"
               onClick={toggleValid}
               className={cn(
-                "flex items-center justify-center gap-1 rounded border py-1 px-1 text-[10px] font-medium transition-colors",
+                "flex items-center justify-center gap-1 rounded-md border py-1.5 px-1 text-[10px] sm:text-[11px] font-semibold transition-all active:scale-95",
                 userVote === "valid"
-                  ? "border-emerald-600 bg-emerald-50 text-emerald-800 font-bold dark:border-emerald-600 dark:bg-emerald-950/70 dark:text-emerald-300 ring-1 ring-emerald-500/40"
+                  ? "border-emerald-600 bg-emerald-50 text-emerald-800 dark:border-emerald-600 dark:bg-emerald-950/70 dark:text-emerald-300 ring-1 ring-emerald-500/40"
                   : "border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
               )}
               title="Konfirmasi harga masih sesuai & berlaku"
             >
-              <Check className="h-2.5 w-2.5 text-emerald-600 dark:text-emerald-400" />
+              <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
               <span>Valid ({validCount})</span>
             </button>
 
@@ -273,19 +292,28 @@ export function PromoCard({ promo, onSelect }: PromoCardProps) {
               type="button"
               onClick={toggleInvalid}
               className={cn(
-                "flex items-center justify-center gap-1 rounded border py-1 px-1 text-[10px] font-medium transition-colors",
+                "flex items-center justify-center gap-1 rounded-md border py-1.5 px-1 text-[10px] sm:text-[11px] font-semibold transition-all active:scale-95",
                 userVote === "invalid"
-                  ? "border-red-600 bg-red-50 text-red-800 font-bold dark:border-red-600 dark:bg-red-950/70 dark:text-red-300 ring-1 ring-red-500/40"
+                  ? "border-red-600 bg-red-50 text-red-800 dark:border-red-600 dark:bg-red-950/70 dark:text-red-300 ring-1 ring-red-500/40"
                   : "border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
               )}
               title="Lapor harga tidak sesuai, habis, atau bohong"
             >
-              <X className="h-2.5 w-2.5 text-red-600 dark:text-red-400" />
+              <X className="h-3 w-3 text-red-600 dark:text-red-400" />
               <span>Tidak Valid ({invalidCount})</span>
             </button>
           </div>
         </div>
       </div>
+
+      {/* Modal Laporkan Konten Promo */}
+      <ReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        type="PROMOTION"
+        targetId={promo.id}
+        targetTitle={`${promo.title} (${promo.storeName})`}
+      />
     </div>
   );
 }

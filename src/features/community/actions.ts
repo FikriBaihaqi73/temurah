@@ -617,8 +617,8 @@ export async function deleteCommentAction(
       };
     }
 
-    // Pastikan hanya pembuat komentar yang dapat menghapus
-    if (comment.userId !== currentUser.id) {
+    // Pastikan pembuat komentar atau admin yang dapat menghapus
+    if (comment.userId !== currentUser.id && !currentUser.isAdmin) {
       return {
         success: false,
         error: "FORBIDDEN: Anda hanya dapat menghapus komentar Anda sendiri.",
@@ -647,3 +647,89 @@ export async function deleteCommentAction(
     };
   }
 }
+
+/**
+ * Server Action: Mengirim laporan konten (Promo atau Komentar) oleh pengguna biasa
+ */
+export interface CreateReportInput {
+  type: "PROMOTION" | "COMMENT";
+  targetId: string;
+  reason: string;
+  description?: string;
+}
+
+export async function createReportAction(
+  data: CreateReportInput
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const currentUser = await getCurrentUserAction();
+    if (!currentUser) {
+      return {
+        success: false,
+        error: "Silakan masuk terlebih dahulu untuk mengirimkan laporan.",
+      };
+    }
+
+    if (!data.reason?.trim()) {
+      return { success: false, error: "Alasan laporan wajib dipilih." };
+    }
+
+    if (data.type === "PROMOTION") {
+      const promo = await prisma.promotion.findUnique({
+        where: { id: data.targetId },
+        include: { createdByUser: { select: { id: true, name: true } } },
+      });
+
+      if (!promo) {
+        return { success: false, error: "Promosi tidak ditemukan atau telah dihapus." };
+      }
+
+      await prisma.report.create({
+        data: {
+          type: "PROMOTION",
+          reporterId: currentUser.id,
+          reason: data.reason.trim(),
+          description: data.description?.trim() || null,
+          promotionId: promo.id,
+          targetTitle: promo.productName,
+          targetAuthorName: promo.createdByUser.name,
+          targetAuthorId: promo.createdByUser.id,
+          status: "PENDING",
+        },
+      });
+    } else {
+      const comment = await prisma.comment.findUnique({
+        where: { id: data.targetId },
+        include: {
+          user: { select: { id: true, name: true } },
+          promotion: { select: { id: true, productName: true } },
+        },
+      });
+
+      if (!comment) {
+        return { success: false, error: "Komentar tidak ditemukan atau telah dihapus." };
+      }
+
+      await prisma.report.create({
+        data: {
+          type: "COMMENT",
+          reporterId: currentUser.id,
+          reason: data.reason.trim(),
+          description: data.description?.trim() || null,
+          commentId: comment.id,
+          promotionId: comment.promotionId,
+          targetTitle: comment.content.length > 80 ? comment.content.slice(0, 77) + "..." : comment.content,
+          targetAuthorName: comment.user.name,
+          targetAuthorId: comment.user.id,
+          status: "PENDING",
+        },
+      });
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("[createReportAction error]:", error);
+    return { success: false, error: error.message || "Gagal mengirimkan laporan." };
+  }
+}
+

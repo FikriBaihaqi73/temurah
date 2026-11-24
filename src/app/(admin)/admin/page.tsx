@@ -50,17 +50,24 @@ import {
   addRoleAction,
   toggleRoleAction,
   deleteRoleAction,
+  getAdminReportsAction,
+  resolveReportAction,
+  dismissReportAction,
+  adminDeletePromotionAction,
+  adminDeleteCommentAction,
   type AdminStats,
   type AdminUserItem,
   type PlatformItem,
   type CategoryItem,
   type StoreCategoryItem,
   type RoleItem,
+  type AdminReportItem,
 } from "@/features/admin";
 
 type AdminTab = 
   | "overview" 
   | "users" 
+  | "reports"
   | "online-stores" 
   | "offline-stores" 
   | "categories" 
@@ -77,6 +84,8 @@ export default function AdminDashboardPage() {
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [storeCategories, setStoreCategories] = useState<StoreCategoryItem[]>([]);
   const [roles, setRoles] = useState<RoleItem[]>([]);
+  const [reports, setReports] = useState<AdminReportItem[]>([]);
+  const [reportFilter, setReportFilter] = useState<"ALL" | "PENDING" | "PROMOTION" | "COMMENT">("PENDING");
   const [isLoading, setIsLoading] = useState(true);
   const [searchUserQuery, setSearchUserQuery] = useState("");
 
@@ -113,13 +122,14 @@ export default function AdminDashboardPage() {
   const loadAllData = async () => {
     setIsLoading(true);
     try {
-      const [statsRes, usersRes, platRes, catRes, storeCatRes, rolesRes] = await Promise.all([
+      const [statsRes, usersRes, platRes, catRes, storeCatRes, rolesRes, reportsRes] = await Promise.all([
         getAdminStatsAction(),
         getAdminUsersAction(),
         getPlatformsAction(),
         getAdminCategoriesAction(),
         getStoreCategoriesAction(),
         getRolesAction(),
+        getAdminReportsAction(),
       ]);
 
       if (statsRes.success && statsRes.data) setStats(statsRes.data);
@@ -128,6 +138,7 @@ export default function AdminDashboardPage() {
       if (catRes.success) setCategories(catRes.data);
       if (storeCatRes.success) setStoreCategories(storeCatRes.data);
       if (rolesRes.success) setRoles(rolesRes.data);
+      if (reportsRes.success) setReports(reportsRes.data);
     } catch (err) {
       console.error("Gagal memuat data admin:", err);
     } finally {
@@ -187,8 +198,9 @@ export default function AdminDashboardPage() {
   }
 
   // Handler Banned User
-  const handleToggleBan = async (u: AdminUserItem) => {
-    const confirmText = u.isBanned 
+  const handleToggleBan = async (u: { id: string; name: string; isBanned?: boolean }) => {
+    const isCurrentlyBanned = !!u.isBanned;
+    const confirmText = isCurrentlyBanned 
       ? `Apakah Anda yakin ingin memulihkan (unban) akun ${u.name}?` 
       : `Apakah Anda yakin ingin membanned akun ${u.name}? Akun tidak akan bisa login atau membagikan promo.`;
     
@@ -363,6 +375,66 @@ export default function AdminDashboardPage() {
     }
   };
 
+  // Handler Laporan Warga
+  const handleResolveReport = async (reportId: string) => {
+    const res = await resolveReportAction(reportId);
+    if (res.success) {
+      setReports((prev) =>
+        prev.map((r) => (r.id === reportId ? { ...r, status: "RESOLVED", actionNotes: "Diselesaikan oleh admin" } : r))
+      );
+      showNotification("Laporan berhasil ditandai sebagai Selesai.");
+    }
+  };
+
+  const handleDismissReport = async (reportId: string) => {
+    const res = await dismissReportAction(reportId);
+    if (res.success) {
+      setReports((prev) =>
+        prev.map((r) => (r.id === reportId ? { ...r, status: "DISMISSED", actionNotes: "Diabaikan oleh admin" } : r))
+      );
+      showNotification("Laporan diabaikan.");
+    }
+  };
+
+  const handleAdminDeletePromo = async (promoId: string, reportId?: string, title?: string) => {
+    if (!window.confirm(`Hapus postingan promo "${title || promoId}" secara permanen?`)) return;
+    const res = await adminDeletePromotionAction(promoId, reportId);
+    if (res.success) {
+      if (reportId) {
+        setReports((prev) =>
+          prev.map((r) => (r.id === reportId ? { ...r, status: "RESOLVED", promotionId: null, actionNotes: "Promo dihapus oleh admin" } : r))
+        );
+      }
+      showNotification("Postingan promo berhasil dihapus dari sistem.");
+    } else {
+      alert(res.error || "Gagal menghapus postingan promo.");
+    }
+  };
+
+  const handleAdminDeleteComment = async (commentId: string, reportId?: string) => {
+    if (!window.confirm("Hapus komentar ini secara permanen?")) return;
+    const res = await adminDeleteCommentAction(commentId, reportId);
+    if (res.success) {
+      if (reportId) {
+        setReports((prev) =>
+          prev.map((r) => (r.id === reportId ? { ...r, status: "RESOLVED", commentId: null, actionNotes: "Komentar dihapus oleh admin" } : r))
+        );
+      }
+      showNotification("Komentar berhasil dihapus dari sistem.");
+    } else {
+      alert(res.error || "Gagal menghapus komentar.");
+    }
+  };
+
+  const pendingReportsCount = reports.filter((r) => r.status === "PENDING").length;
+
+  const filteredReports = reports.filter((r) => {
+    if (reportFilter === "PENDING") return r.status === "PENDING";
+    if (reportFilter === "PROMOTION") return r.type === "PROMOTION";
+    if (reportFilter === "COMMENT") return r.type === "COMMENT";
+    return true;
+  });
+
   const filteredUsers = users.filter(
     (u) =>
       u.name.toLowerCase().includes(searchUserQuery.toLowerCase()) ||
@@ -425,6 +497,30 @@ export default function AdminDashboardPage() {
             <span className={cn("text-[10px] px-1.5 py-0.2 rounded font-mono", activeTab === "users" ? "bg-white/20 text-white" : "bg-zinc-800 text-zinc-400")}>
               {users.length}
             </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("reports")}
+            className={cn(
+              "w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer",
+              activeTab === "reports"
+                ? "bg-red-600 text-white font-semibold shadow-xs"
+                : "text-zinc-400 hover:text-white hover:bg-zinc-900"
+            )}
+          >
+            <div className="flex items-center gap-2.5">
+              <ShieldAlert className="h-4 w-4" />
+              <span>Laporan Warga</span>
+            </div>
+            {pendingReportsCount > 0 ? (
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold bg-amber-500 text-black animate-pulse">
+                {pendingReportsCount} baru
+              </span>
+            ) : (
+              <span className={cn("text-[10px] px-1.5 py-0.2 rounded font-mono", activeTab === "reports" ? "bg-white/20 text-white" : "bg-zinc-800 text-zinc-400")}>
+                {reports.length}
+              </span>
+            )}
           </button>
 
           <div className="pt-3 pb-1 px-3">
@@ -544,6 +640,7 @@ export default function AdminDashboardPage() {
             <span className="text-zinc-200 font-medium capitalize">
               {activeTab === "overview" && "Overview & Analisis"}
               {activeTab === "users" && "Kelola Pengguna Komunitas"}
+              {activeTab === "reports" && "Moderasi Laporan Warga (Pelanggaran Konten)"}
               {activeTab === "online-stores" && "Master Data Toko Online (Marketplace)"}
               {activeTab === "offline-stores" && "Master Data Toko Offline (Kategori Fisik)"}
               {activeTab === "categories" && "Master Kategori Produk Diskon"}
@@ -813,6 +910,237 @@ export default function AdminDashboardPage() {
                   </table>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* TAB LAPORAN WARGA (MODERASI KONTEN) */}
+          {activeTab === "reports" && (
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-base font-bold text-white flex items-center gap-2">
+                    <ShieldAlert className="h-5 w-5 text-amber-500" />
+                    Pusat Moderasi Laporan Warga
+                  </h2>
+                  <p className="text-xs text-zinc-400">
+                    Tinjau laporan dugaan harga palsu, stok habis, penipuan, atau komentar tidak pantas dari warga.
+                  </p>
+                </div>
+
+                {/* Filter Status / Tipe */}
+                <div className="flex flex-wrap items-center gap-1.5 bg-zinc-900 border border-zinc-800 p-1 rounded-lg">
+                  <button
+                    onClick={() => setReportFilter("PENDING")}
+                    className={cn(
+                      "px-2.5 py-1 rounded text-xs font-semibold cursor-pointer transition-colors",
+                      reportFilter === "PENDING" ? "bg-amber-500 text-black shadow-xs" : "text-zinc-400 hover:text-white"
+                    )}
+                  >
+                    Menunggu ({pendingReportsCount})
+                  </button>
+                  <button
+                    onClick={() => setReportFilter("ALL")}
+                    className={cn(
+                      "px-2.5 py-1 rounded text-xs font-semibold cursor-pointer transition-colors",
+                      reportFilter === "ALL" ? "bg-zinc-800 text-white" : "text-zinc-400 hover:text-white"
+                    )}
+                  >
+                    Semua ({reports.length})
+                  </button>
+                  <button
+                    onClick={() => setReportFilter("PROMOTION")}
+                    className={cn(
+                      "px-2.5 py-1 rounded text-xs font-semibold cursor-pointer transition-colors",
+                      reportFilter === "PROMOTION" ? "bg-zinc-800 text-white" : "text-zinc-400 hover:text-white"
+                    )}
+                  >
+                    Promo ({reports.filter((r) => r.type === "PROMOTION").length})
+                  </button>
+                  <button
+                    onClick={() => setReportFilter("COMMENT")}
+                    className={cn(
+                      "px-2.5 py-1 rounded text-xs font-semibold cursor-pointer transition-colors",
+                      reportFilter === "COMMENT" ? "bg-zinc-800 text-white" : "text-zinc-400 hover:text-white"
+                    )}
+                  >
+                    Komentar ({reports.filter((r) => r.type === "COMMENT").length})
+                  </button>
+                </div>
+              </div>
+
+              {filteredReports.length === 0 ? (
+                <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-12 text-center space-y-2">
+                  <div className="h-10 w-10 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto">
+                    <CheckCircle2 className="h-5 w-5" />
+                  </div>
+                  <h3 className="text-sm font-bold text-white">Tidak Ada Laporan</h3>
+                  <p className="text-xs text-zinc-500">
+                    {reportFilter === "PENDING"
+                      ? "Bagus! Semua laporan dari warga telah selesai ditangani."
+                      : "Belum ada laporan dari warga untuk kategori ini."}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {filteredReports.map((r) => (
+                    <div
+                      key={r.id}
+                      className={cn(
+                        "rounded-xl border p-4 space-y-3 transition-colors",
+                        r.status === "PENDING"
+                          ? "border-amber-500/40 bg-zinc-900/90 shadow-md"
+                          : "border-zinc-800 bg-zinc-900/50 opacity-80"
+                      )}
+                    >
+                      {/* Baris Atas: Badge Tipe, Alasan & Status */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-zinc-800/80">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={cn(
+                              "text-[10px] font-bold px-2 py-0.5 rounded font-mono uppercase tracking-wide",
+                              r.type === "PROMOTION"
+                                ? "bg-red-600/20 text-red-400 border border-red-500/40"
+                                : "bg-blue-600/20 text-blue-400 border border-blue-500/40"
+                            )}
+                          >
+                            {r.type === "PROMOTION" ? "Laporan Promo" : "Laporan Komentar"}
+                          </span>
+
+                          <span className="text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2.5 py-0.5 rounded-full">
+                            {r.reason}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className="text-[11px] text-zinc-500 font-mono">
+                            {new Date(r.createdAt).toLocaleDateString("id-ID", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+
+                          <span
+                            className={cn(
+                              "text-[10px] font-bold px-2 py-0.5 rounded-full",
+                              r.status === "PENDING"
+                                ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                                : r.status === "RESOLVED"
+                                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                                : "bg-zinc-800 text-zinc-400"
+                            )}
+                          >
+                            {r.status === "PENDING" && "Menunggu Review"}
+                            {r.status === "RESOLVED" && "Telah Ditindak"}
+                            {r.status === "DISMISSED" && "Diabaikan"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Baris Tengah: Info Pelapor & Target Konten */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                        {/* Info Konten Yang Dilaporkan */}
+                        <div className="rounded-lg bg-zinc-950/80 border border-zinc-800 p-3 space-y-1.5">
+                          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                            Konten Yang Dilaporkan:
+                          </span>
+                          <p className="font-semibold text-zinc-100 text-xs line-clamp-2">
+                            &quot;{r.targetTitle || "Konten telah dihapus"}&quot;
+                          </p>
+                          <div className="pt-1 flex items-center justify-between text-[11px] text-zinc-400">
+                            <span>
+                              Pembuat: <strong className="text-zinc-200">{r.targetAuthorName || "Anonim"}</strong>
+                            </span>
+                            {r.targetAuthorId && (
+                              <button
+                                type="button"
+                                onClick={() => handleToggleBan({ id: r.targetAuthorId!, name: r.targetAuthorName || "User", isBanned: false })}
+                                className="text-[10px] text-red-400 hover:text-red-300 hover:underline cursor-pointer"
+                              >
+                                Blokir Akun Ini
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Info Pelapor & Catatan */}
+                        <div className="rounded-lg bg-zinc-950/80 border border-zinc-800 p-3 space-y-1.5">
+                          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                            Dilaporkan Oleh Warga:
+                          </span>
+                          <p className="text-xs text-zinc-200 font-medium">
+                            {r.reporter.name} <span className="text-zinc-500">({r.reporter.email})</span>
+                          </p>
+                          {r.description ? (
+                            <p className="text-[11px] text-zinc-400 italic bg-zinc-900 p-1.5 rounded border border-zinc-800/80">
+                              Catatan: &quot;{r.description}&quot;
+                            </p>
+                          ) : (
+                            <p className="text-[11px] text-zinc-600">Tidak ada catatan tambahan dari pelapor.</p>
+                          )}
+                          {r.actionNotes && (
+                            <p className="text-[10px] text-emerald-400 font-mono">
+                              Admin: {r.actionNotes}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Baris Bawah: Tombol Tindakan Admin */}
+                      <div className="pt-2 flex flex-wrap items-center justify-end gap-2 border-t border-zinc-800/80">
+                        {r.type === "PROMOTION" && r.promotionId && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleAdminDeletePromo(r.promotionId!, r.id, r.targetTitle || undefined)}
+                            className="h-8 text-xs font-semibold border-red-600/50 text-red-400 hover:bg-red-950/40 gap-1.5 cursor-pointer"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            <span>Hapus Postingan Promo</span>
+                          </Button>
+                        )}
+
+                        {r.type === "COMMENT" && r.commentId && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleAdminDeleteComment(r.commentId!, r.id)}
+                            className="h-8 text-xs font-semibold border-red-600/50 text-red-400 hover:bg-red-950/40 gap-1.5 cursor-pointer"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            <span>Hapus Komentar</span>
+                          </Button>
+                        )}
+
+                        {r.status === "PENDING" && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDismissReport(r.id)}
+                              className="h-8 text-xs font-semibold border-zinc-700 text-zinc-400 hover:text-white hover:bg-zinc-800 cursor-pointer"
+                            >
+                              Abaikan Laporan
+                            </Button>
+
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              onClick={() => handleResolveReport(r.id)}
+                              className="h-8 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 cursor-pointer"
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              <span>Tandai Selesai</span>
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

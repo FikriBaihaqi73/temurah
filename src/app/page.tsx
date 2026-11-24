@@ -350,9 +350,9 @@ export default function LandingPage() {
                 <span className="text-[11px] text-zinc-400 font-medium">Banyak Bukti</span>
               </div>
 
-              <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-none sm:grid sm:grid-cols-3 md:grid-cols-4 sm:overflow-visible sm:pb-0">
+              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none sm:grid sm:grid-cols-3 md:grid-cols-4 sm:overflow-visible sm:pb-0">
                 {popularPosts.map((promo) => (
-                  <div key={promo.id} className="w-[145px] sm:w-auto shrink-0 sm:shrink">
+                  <div key={promo.id} className="w-[165px] sm:w-auto shrink-0 sm:shrink">
                     <PromoCard promo={promo} onSelect={(p) => setActiveDetailPromo(p)} />
                   </div>
                 ))}
@@ -371,9 +371,9 @@ export default function LandingPage() {
                 <span className="text-[11px] text-zinc-400 font-medium">Hemat s/d 36%</span>
               </div>
 
-              <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-none sm:grid sm:grid-cols-3 md:grid-cols-4 sm:overflow-visible sm:pb-0">
+              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none sm:grid sm:grid-cols-3 md:grid-cols-4 sm:overflow-visible sm:pb-0">
                 {biggestDiscountPosts.map((promo) => (
-                  <div key={promo.id} className="w-[145px] sm:w-auto shrink-0 sm:shrink">
+                  <div key={promo.id} className="w-[165px] sm:w-auto shrink-0 sm:shrink">
                     <PromoCard promo={promo} onSelect={(p) => setActiveDetailPromo(p)} />
                   </div>
                 ))}
