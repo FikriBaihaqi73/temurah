@@ -39,7 +39,11 @@ export default function LoginPage() {
     setIsLoading(false);
 
     if (result.success) {
-      router.push("/");
+      if (result.user?.isAdmin) {
+        router.push("/admin");
+      } else {
+        router.push("/");
+      }
       router.refresh();
     } else {
       setError(result.error || "Gagal masuk ke akun. Periksa kembali email dan kata sandi Anda.");

@@ -28,7 +28,14 @@ import { createPromotionAction } from "@/features/promo";
 import { uploadPromoImageAction } from "@/features/upload";
 import { convertAndCompressToWebP } from "@/lib/image-compression";
 
-const CATEGORIES = [
+import { 
+  getPlatformsAction, 
+  getAdminCategoriesAction,
+  getStoreCategoriesAction,
+  type StoreCategoryItem,
+} from "@/features/admin";
+
+const DEFAULT_CATEGORIES = [
   "Kebutuhan Pokok",
   "Sayur & Bumbu",
   "Minuman & Susu",
@@ -39,16 +46,16 @@ const CATEGORIES = [
   "Lainnya",
 ];
 
-const STORE_TYPES = [
-  "Supermarket",
-  "Pasar Tradisional",
-  "Minimarket",
-  "Toko Lokal / Kelontong",
-  "Toko Buah & Sayur",
-  "Toko Online / Marketplace",
+const DEFAULT_OFFLINE_CATEGORIES = [
+  { name: "Supermarket / Hypermart", icon: "🛒" },
+  { name: "Pasar Tradisional", icon: "🥬" },
+  { name: "Minimarket (Indomaret, Alfamart, dll)", icon: "🏪" },
+  { name: "Toko Lokal / Kelontong", icon: "🏬" },
+  { name: "Toko Buah & Sayur", icon: "🍎" },
+  { name: "Apotek & Toko Obat", icon: "💊" },
 ];
 
-const ONLINE_PLATFORMS = [
+const DEFAULT_ONLINE_PLATFORMS = [
   { name: "Shopee", icon: "🟠", placeholder: "Contoh: https://shopee.co.id/... atau Nama Toko Official" },
   { name: "Tokopedia", icon: "🟢", placeholder: "Contoh: https://tokopedia.com/... atau Tokopedia Official Store" },
   { name: "Lazada", icon: "🔵", placeholder: "Contoh: https://lazada.co.id/... atau LazMall" },
@@ -69,11 +76,47 @@ export default function SubmitDealPage() {
     }
   }, [user, isLoading, requireAuth]);
 
-  // Form states
+  // Form states: Tipe Toko Induk (OFFLINE vs ONLINE)
+  const [storeKind, setStoreKind] = useState<"OFFLINE" | "ONLINE">("OFFLINE");
+  const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
+  const [offlineCategories, setOfflineCategories] = useState(DEFAULT_OFFLINE_CATEGORIES);
+  const [platforms, setPlatforms] = useState(DEFAULT_ONLINE_PLATFORMS);
+
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("Kebutuhan Pokok");
-  const [storeType, setStoreType] = useState("Supermarket");
+  const [offlineSubCategory, setOfflineSubCategory] = useState("Supermarket / Hypermart");
   const [onlinePlatform, setOnlinePlatform] = useState("Shopee");
+
+  useEffect(() => {
+    // Ambil master data dinamis platform, kategori produk & kategori toko offline
+    Promise.all([
+      getPlatformsAction(), 
+      getAdminCategoriesAction(),
+      getStoreCategoriesAction(),
+    ])
+      .then(([platRes, catRes, storeCatRes]) => {
+        if (platRes.success && platRes.data.length > 0) {
+          const activeOnly = platRes.data.filter((p) => p.isActive);
+          if (activeOnly.length > 0) {
+            setPlatforms(activeOnly.map((p) => ({ name: p.name, icon: p.icon, placeholder: p.placeholder })));
+            setOnlinePlatform(activeOnly[0].name);
+          }
+        }
+        if (catRes.success && catRes.data.length > 0) {
+          const catNames = catRes.data.map((c) => c.name);
+          setCategories(catNames);
+          setCategory(catNames[0]);
+        }
+        if (storeCatRes.success && storeCatRes.data.length > 0) {
+          const activeStoreCats = storeCatRes.data.filter((sc) => sc.isActive);
+          if (activeStoreCats.length > 0) {
+            setOfflineCategories(activeStoreCats.map((sc) => ({ name: sc.name, icon: sc.icon })));
+            setOfflineSubCategory(activeStoreCats[0].name);
+          }
+        }
+      })
+      .catch((err) => console.warn("Pakai fallback master data:", err));
+  }, []);
   const [onlineUrl, setOnlineUrl] = useState("");
   const [storeName, setStoreName] = useState("");
   const [address, setAddress] = useState("");
@@ -153,16 +196,21 @@ export default function SubmitDealPage() {
     e.preventDefault();
     setError("");
 
-    const isOnline = storeType === "Toko Online / Marketplace";
-    const finalStoreName = isOnline ? (storeName.trim() ? `${onlinePlatform} - ${storeName.trim()}` : onlinePlatform) : storeName.trim();
-    const finalAddress = isOnline ? (onlineUrl.trim() || `Toko Online (${onlinePlatform})`) : (address.trim() || storeName.trim());
+    const isOnline = storeKind === "ONLINE";
+    const finalStoreType = isOnline ? "Online / Marketplace" : offlineSubCategory;
+    const finalStoreName = isOnline 
+      ? (storeName.trim() ? `${onlinePlatform} - ${storeName.trim()}` : onlinePlatform) 
+      : storeName.trim();
+    const finalAddress = isOnline 
+      ? (onlineUrl.trim() || `Toko Online (${onlinePlatform})`) 
+      : (address.trim() || storeName.trim());
 
     if (!title.trim()) {
       setError("Nama produk promo wajib diisi.");
       return;
     }
     if (!finalStoreName.trim()) {
-      setError("Nama toko/platform wajib diisi.");
+      setError("Nama toko/pasar/platform wajib diisi.");
       return;
     }
     if (!promoNum) {
@@ -187,7 +235,7 @@ export default function SubmitDealPage() {
       const result = await createPromotionAction({
         title: title.trim(),
         category,
-        storeType,
+        storeType: finalStoreType,
         storeName: finalStoreName,
         address: finalAddress,
         lat: isOnline ? 0 : (selectedCoords?.lat ?? -7.7829),
@@ -403,7 +451,7 @@ export default function SubmitDealPage() {
                 onChange={(e) => setCategory(e.target.value)}
                 className="w-full h-10 rounded-md border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-xs text-zinc-100 focus:border-red-500 focus:outline-none"
               >
-                {CATEGORIES.map((cat) => (
+                {categories.map((cat) => (
                   <option key={cat} value={cat} className="bg-zinc-900 text-zinc-100">
                     {cat}
                   </option>
@@ -457,110 +505,91 @@ export default function SubmitDealPage() {
             )}
           </div>
 
-          {/* 3. LOKASI TOKO / PASAR / PLATFORM ONLINE */}
+          {/* 3. LOKASI TOKO / PASAR / PLATFORM ONLINE (ALUR INDUK - ANAK) */}
           <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 space-y-4">
-            <h2 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5 border-b border-zinc-800 pb-2">
-              <Store className="h-3.5 w-3.5 text-red-500" />
-              <span>Lokasi & Toko Penemu Promo</span>
-            </h2>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-zinc-300 mb-1">
-                  Tipe Toko <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={storeType}
-                  onChange={(e) => setStoreType(e.target.value)}
-                  className="w-full h-10 rounded-md border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-xs text-zinc-100 focus:border-red-500 focus:outline-none"
-                >
-                  {STORE_TYPES.map((type) => (
-                    <option key={type} value={type} className="bg-zinc-900 text-zinc-100">
-                      {type}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* TAMPILAN JIKA TOKO ONLINE / MARKETPLACE DIPILIH */}
-              {storeType === "Toko Online / Marketplace" ? (
-                <div>
-                  <label className="block text-xs font-medium text-zinc-300 mb-1">
-                    Pilih Platform Marketplace <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={onlinePlatform}
-                    onChange={(e) => setOnlinePlatform(e.target.value)}
-                    className="w-full h-10 rounded-md border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-xs text-zinc-100 focus:border-red-500 focus:outline-none font-semibold text-red-400"
-                  >
-                    {ONLINE_PLATFORMS.map((p) => (
-                      <option key={p.name} value={p.name} className="bg-zinc-900 text-zinc-100 font-normal">
-                        {p.icon} {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : (
-                <div>
-                  <label className="block text-xs font-medium text-zinc-300 mb-1">
-                    Nama Toko / Kios Pasar <span className="text-red-500">*</span>
-                  </label>
-                  <Input
-                    type="text"
-                    value={storeName}
-                    onChange={(e) => setStoreName(e.target.value)}
-                    placeholder="Contoh: Pasar Kranggan Kios Bu Siti"
-                    required
-                    className="h-10 text-xs bg-zinc-950/80 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-red-500"
-                  />
-                </div>
-              )}
+            <div className="border-b border-zinc-800 pb-2 flex items-center justify-between">
+              <h2 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                <Store className="h-3.5 w-3.5 text-red-500" />
+                <span>Pusat Lokasi & Tempat Diskon</span>
+              </h2>
+              <span className="text-[10px] text-zinc-400">Offline & Online</span>
             </div>
 
-            {/* JIKA TOKO ONLINE: Input Nama Toko Official & Link URL Produk */}
-            {storeType === "Toko Online / Marketplace" ? (
-              <div className="space-y-3 pt-1">
-                <div>
-                  <label className="block text-xs font-medium text-zinc-300 mb-1">
-                    Nama Akun Toko / Official Store di {onlinePlatform} (Opsional)
-                  </label>
-                  <Input
-                    type="text"
-                    value={storeName}
-                    onChange={(e) => setStoreName(e.target.value)}
-                    placeholder={`Contoh: Unilever Official Store di ${onlinePlatform}`}
-                    className="h-10 text-xs bg-zinc-950/80 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-red-500"
-                  />
+            {/* TAB INDUK: PILIH OFFLINE (TOKO FISIK) ATAU ONLINE (MARKETPLACE) */}
+            <div>
+              <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+                Jenis Belanja (Toko Induk) <span className="text-red-500">*</span>
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setStoreKind("OFFLINE")}
+                  className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
+                    storeKind === "OFFLINE"
+                      ? "border-red-500 bg-red-950/40 text-white shadow-md shadow-red-950/50"
+                      : "border-zinc-800 bg-zinc-950/60 text-zinc-400 hover:text-white hover:bg-zinc-800/50"
+                  }`}
+                >
+                  <Store className="h-4 w-4 text-red-500" />
+                  <span>Toko Fisik / Offline</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setStoreKind("ONLINE")}
+                  className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
+                    storeKind === "ONLINE"
+                      ? "border-blue-500 bg-blue-950/40 text-white shadow-md shadow-blue-950/50"
+                      : "border-zinc-800 bg-zinc-950/60 text-zinc-400 hover:text-white hover:bg-zinc-800/50"
+                  }`}
+                >
+                  <Globe className="h-4 w-4 text-blue-400" />
+                  <span>Toko Online / Marketplace</span>
+                </button>
+              </div>
+            </div>
+
+            {/* ========================================================= */}
+            {/* CABANG ANAK 1: JIKA TOKO FISIK / OFFLINE DIPILIH          */}
+            {/* ========================================================= */}
+            {storeKind === "OFFLINE" ? (
+              <div className="space-y-3 pt-1 border-t border-zinc-800/70 animate-in fade-in">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-300 mb-1">
+                      Kategori Tempat Belanja (Anak) <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={offlineSubCategory}
+                      onChange={(e) => setOfflineSubCategory(e.target.value)}
+                      className="w-full h-10 rounded-md border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-xs text-zinc-100 focus:border-red-500 focus:outline-none"
+                    >
+                      {offlineCategories.map((sc) => (
+                        <option key={sc.name} value={sc.name} className="bg-zinc-900 text-zinc-100">
+                          {sc.icon} {sc.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-300 mb-1">
+                      Nama Toko / Kios Pasar <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      type="text"
+                      value={storeName}
+                      onChange={(e) => setStoreName(e.target.value)}
+                      placeholder="Contoh: Pasar Kranggan Kios Bu Siti / Superindo"
+                      required
+                      className="h-10 text-xs bg-zinc-950/80 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-red-500"
+                    />
+                  </div>
                 </div>
 
                 <div>
                   <label className="block text-xs font-medium text-zinc-300 mb-1">
-                    Link / URL Produk atau Promo (Opsional)
-                  </label>
-                  <div className="relative">
-                    <Input
-                      type="url"
-                      value={onlineUrl}
-                      onChange={(e) => setOnlineUrl(e.target.value)}
-                      placeholder={
-                        ONLINE_PLATFORMS.find((p) => p.name === onlinePlatform)?.placeholder ||
-                        "https://..."
-                      }
-                      className="h-10 pl-9 text-xs bg-zinc-950/80 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-red-500"
-                    />
-                    <Globe className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
-                  </div>
-                  <p className="text-[11px] text-zinc-500 mt-1">
-                    Warga dapat langsung mengklik tautan ini untuk membeli produk diskon di {onlinePlatform}.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              /* JIKA TOKO FISIK: Input Alamat & Tombol Buka Peta */
-              <>
-                <div>
-                  <label className="block text-xs font-medium text-zinc-300 mb-1">
-                    Alamat / Patokan Jalan (Untuk Buka Peta)
+                    Alamat / Patokan Jalan (Untuk Buka Peta) <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <Input
@@ -577,7 +606,7 @@ export default function SubmitDealPage() {
                 {/* TOMBOL PEMICU MODAL PETA LOKASI */}
                 <div className="pt-1">
                   <label className="block text-xs font-medium text-zinc-300 mb-1.5">
-                    Titik Peta & Navigasi
+                    Titik Peta & Navigasi GPS
                   </label>
                   
                   <button
@@ -591,10 +620,10 @@ export default function SubmitDealPage() {
                       </div>
                       <div className="min-w-0">
                         <p className="text-xs font-semibold text-white truncate">
-                          {storeName || "Buka Peta & Pilih Lokasi Toko"}
+                          {storeName || "Buka Peta & Pilih Titik Lokasi Toko"}
                         </p>
                         <p className="text-[11px] text-zinc-400 truncate">
-                          {address || "Klik untuk cari nama pasar, toko, atau deteksi lokasi GPS saat ini"}
+                          {address || "Klik untuk deteksi GPS posisi saat ini atau cari nama toko"}
                         </p>
                       </div>
                     </div>
@@ -604,7 +633,66 @@ export default function SubmitDealPage() {
                     </span>
                   </button>
                 </div>
-              </>
+              </div>
+            ) : (
+              /* ========================================================= */
+              /* CABANG ANAK 2: JIKA TOKO ONLINE / MARKETPLACE DIPILIH     */
+              /* ========================================================= */
+              <div className="space-y-3 pt-1 border-t border-zinc-800/70 animate-in fade-in">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-300 mb-1">
+                      Pilih Platform E-Commerce (Anak) <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={onlinePlatform}
+                      onChange={(e) => setOnlinePlatform(e.target.value)}
+                      className="w-full h-10 rounded-md border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-xs text-zinc-100 focus:border-blue-500 focus:outline-none font-semibold text-blue-400"
+                    >
+                      {platforms.map((p) => (
+                        <option key={p.name} value={p.name} className="bg-zinc-900 text-zinc-100 font-normal">
+                          {p.icon} {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-300 mb-1">
+                      Nama Toko / Official Store di {onlinePlatform} (Opsional)
+                    </label>
+                    <Input
+                      type="text"
+                      value={storeName}
+                      onChange={(e) => setStoreName(e.target.value)}
+                      placeholder={`Contoh: Official Store di ${onlinePlatform}`}
+                      className="h-10 text-xs bg-zinc-950/80 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-zinc-300 mb-1">
+                    Link / URL Produk atau Promo di {onlinePlatform}
+                  </label>
+                  <div className="relative">
+                    <Input
+                      type="url"
+                      value={onlineUrl}
+                      onChange={(e) => setOnlineUrl(e.target.value)}
+                      placeholder={
+                        platforms.find((p) => p.name === onlinePlatform)?.placeholder ||
+                        "https://..."
+                      }
+                      className="h-10 pl-9 text-xs bg-zinc-950/80 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-blue-500"
+                    />
+                    <Globe className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+                  </div>
+                  <p className="text-[11px] text-zinc-500 mt-1">
+                    Warga dapat langsung mengklik tautan ini untuk membuka promo dan belanja online.
+                  </p>
+                </div>
+              </div>
             )}
           </div>
 

@@ -8,7 +8,7 @@ export const USER_ROLES = [
   "Pencari Diskon Umum",
 ] as const;
 
-export type UserRole = (typeof USER_ROLES)[number];
+export type UserRole = string;
 
 export const registerSchema = z
   .object({
@@ -27,9 +27,7 @@ export const registerSchema = z
       .min(6, "Kata sandi minimal 6 karakter.")
       .max(100, "Kata sandi terlalu panjang."),
     confirmPassword: z.string().min(1, "Konfirmasi kata sandi wajib diisi."),
-    role: z.enum(USER_ROLES, {
-      message: "Pilihan peran/persona tidak valid.",
-    }),
+    role: z.string().min(1, "Pilihan peran/persona wajib dipilih."),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Konfirmasi kata sandi tidak cocok.",
@@ -56,9 +54,7 @@ export const updateProfileSchema = z
       .trim()
       .min(2, "Nama minimal 2 karakter.")
       .max(120, "Nama maksimal 120 karakter."),
-    role: z.enum(USER_ROLES, {
-      message: "Pilihan peran/persona tidak valid.",
-    }),
+    role: z.string().min(1, "Pilihan peran/persona wajib dipilih."),
     avatarUrl: z.string().trim().optional(),
     currentPassword: z.string().optional(),
     newPassword: z.string().optional(),

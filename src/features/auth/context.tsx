@@ -21,7 +21,7 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthModalOpen: boolean;
   authModalReason: string;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; user?: User; error?: string }>;
   register: (data: {
     name: string;
     email: string;
@@ -90,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (result.success) {
         setUser(result.user);
         setIsAuthModalOpen(false);
-        return { success: true };
+        return { success: true, user: result.user };
       }
       return { success: false, error: result.error };
     } catch (err) {

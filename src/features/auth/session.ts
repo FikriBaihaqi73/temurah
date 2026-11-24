@@ -21,6 +21,7 @@ export type SessionPayload = {
   badge: string;
   avatarUrl: string | null;
   preference: UserPreference;
+  isAdmin?: boolean;
 };
 
 /**

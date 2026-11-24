@@ -2,7 +2,7 @@ import { UserPreference } from "@/generated/prisma/enums";
 import type { UserRole } from "@/features/auth/validations";
 
 // Map database enum to frontend role & badge
-export function preferenceToRoleAndBadge(preference: UserPreference): { role: UserRole; badge: string } {
+export function preferenceToRoleAndBadge(preference: UserPreference): { role: string; badge: string } {
   switch (preference) {
     case UserPreference.STUDENT:
       return { role: "Mahasiswa", badge: "Hemat Pelajar 🎓" };
@@ -19,7 +19,7 @@ export function preferenceToRoleAndBadge(preference: UserPreference): { role: Us
 }
 
 // Map frontend role to database enum
-export function roleToPreference(role: UserRole): UserPreference {
+export function roleToPreference(role: string): UserPreference {
   switch (role) {
     case "Mahasiswa":
       return UserPreference.STUDENT;

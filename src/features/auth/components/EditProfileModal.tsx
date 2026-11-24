@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { 
   X, 
   Camera, 
@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/features/auth";
 import { USER_ROLES, type UserRole } from "@/features/auth/validations";
+import { getRolesAction } from "@/features/admin";
 import { uploadAvatarImageAction } from "@/features/upload";
 import { ImageCropModal } from "@/features/auth/components/ImageCropModal";
 import { convertAndCompressToWebP } from "@/lib/image-compression";
@@ -33,6 +34,7 @@ export function EditProfileModal({ isOpen, onClose }: EditProfileModalProps) {
   // Form states
   const [name, setName] = useState(user?.name || "");
   const [role, setRole] = useState<UserRole>(user?.role || "Pencari Diskon Umum");
+  const [roleList, setRoleList] = useState<string[]>(Array.from(USER_ROLES));
   const [avatar, setAvatar] = useState(getSafeAvatar(user?.avatar));
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -46,6 +48,19 @@ export function EditProfileModal({ isOpen, onClose }: EditProfileModalProps) {
   // State untuk Crop Modal
   const [rawImageToCrop, setRawImageToCrop] = useState<string | null>(null);
   const [isCropModalOpen, setIsCropModalOpen] = useState(false);
+
+  useEffect(() => {
+    getRolesAction()
+      .then((res) => {
+        if (res.success && res.data.length > 0) {
+          const active = res.data.filter((r) => r.isActive).map((r) => r.name);
+          if (active.length > 0) {
+            setRoleList(active);
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   if (!isOpen || !user) return null;
 
@@ -304,7 +319,7 @@ export function EditProfileModal({ isOpen, onClose }: EditProfileModalProps) {
               onChange={(e) => setRole(e.target.value as UserRole)}
               className="w-full rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs text-zinc-900 focus:border-red-600 focus:outline-hidden dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 h-9"
             >
-              {USER_ROLES.map((r) => (
+              {roleList.map((r) => (
                 <option key={r} value={r}>
                   {r}
                 </option>

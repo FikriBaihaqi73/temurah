@@ -28,6 +28,7 @@ export type SafeUser = {
   role: UserRole;
   badge: string;
   avatar: string;
+  isAdmin?: boolean;
 };
 
 export type AuthActionResult =
@@ -90,6 +91,7 @@ export async function registerAction(
       badge,
       avatarUrl: newUser.avatarUrl,
       preference: newUser.preference,
+      isAdmin: newUser.isAdmin,
     };
 
     await setSessionCookie(sessionPayload);
@@ -103,6 +105,7 @@ export async function registerAction(
         role,
         badge,
         avatar: newUser.avatarUrl || defaultAvatar,
+        isAdmin: newUser.isAdmin,
       },
     };
   } catch (error) {
@@ -142,6 +145,13 @@ export async function loginAction(
       };
     }
 
+    if (user.isBanned) {
+      return {
+        success: false,
+        error: `Akun Anda telah dinonaktifkan/dibanned oleh Admin. Alasan: ${user.banReason || "Pelanggaran pedoman komunitas"}.`,
+      };
+    }
+
     // 3. Verifikasi hash password
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
@@ -164,6 +174,7 @@ export async function loginAction(
       badge,
       avatarUrl: user.avatarUrl,
       preference: user.preference,
+      isAdmin: user.isAdmin,
     };
 
     await setSessionCookie(sessionPayload);
@@ -177,6 +188,7 @@ export async function loginAction(
         role,
         badge,
         avatar,
+        isAdmin: user.isAdmin,
       },
     };
   } catch (error) {
@@ -282,6 +294,7 @@ export async function updateProfileAction(
       badge: newBadge,
       avatarUrl: updatedUser.avatarUrl,
       preference,
+      isAdmin: updatedUser.isAdmin,
     };
 
     await setSessionCookie(newSessionPayload);
@@ -295,6 +308,7 @@ export async function updateProfileAction(
         role: newRole,
         badge: newBadge,
         avatar: finalAvatar,
+        isAdmin: updatedUser.isAdmin,
       },
     };
   } catch (error) {
@@ -326,10 +340,12 @@ export async function getCurrentUserAction(): Promise<SafeUser | null> {
         preference: true,
         avatarUrl: true,
         deletedAt: true,
+        isAdmin: true,
+        isBanned: true,
       },
     });
 
-    if (!user || user.deletedAt) {
+    if (!user || user.deletedAt || user.isBanned) {
       await deleteSessionCookie();
       return null;
     }
@@ -343,6 +359,7 @@ export async function getCurrentUserAction(): Promise<SafeUser | null> {
       role,
       badge,
       avatar: getSafeAvatar(user.avatarUrl),
+      isAdmin: user.isAdmin,
     };
   } catch (error) {
     console.error("[getCurrentUserAction error]:", error);

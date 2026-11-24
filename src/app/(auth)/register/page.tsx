@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -21,44 +21,40 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useAuth, UserRole } from "@/features/auth";
+import { useAuth } from "@/features/auth";
+import { getRolesAction, type RoleItem } from "@/features/admin";
 import { cn } from "@/lib/utils";
 
-const ROLE_OPTIONS: { id: UserRole; title: string; desc: string; icon: React.ElementType; badgeLabel: string }[] = [
+const DEFAULT_ROLE_OPTIONS = [
   {
-    id: "Mahasiswa",
-    title: "Mahasiswa / Pelajar",
-    desc: "Cari makan murah, kos hemat, & diskon fotokopi/kafe",
-    badgeLabel: "Hemat Pelajar",
-    icon: GraduationCap,
+    name: "Mahasiswa",
+    badge: "Hemat Pelajar 🎓",
+    description: "Cari makan murah, kos hemat, & diskon fotokopi/kafe",
+    icon: "🎓",
   },
   {
-    id: "Pekerja / Karyawan",
-    title: "Pekerja / Karyawan",
-    desc: "Pantau promo groceries bulanan & makan siang hemat",
-    badgeLabel: "Smart Spender",
-    icon: Briefcase,
+    name: "Pekerja / Karyawan",
+    badge: "Smart Spender 💼",
+    description: "Pantau promo groceries bulanan & makan siang hemat",
+    icon: "💼",
   },
   {
-    id: "Pemilik UMKM / Usaha",
-    title: "Pemilik Toko / UMKM Lokal",
-    desc: "Bagi promosi tokomu & pantau bahan baku pasar murah",
-    badgeLabel: "Mitra Lokal",
-    icon: Store,
+    name: "Ibu Rumah Tangga",
+    badge: "Ahli Pasar 🏠",
+    description: "Update harga sembako, minyak, telur, sayur segar pasar",
+    icon: "🏠",
   },
   {
-    id: "Ibu Rumah Tangga",
-    title: "Ibu Rumah Tangga",
-    desc: "Update harga sembako, minyak, telur, sayur segar pasar",
-    badgeLabel: "Ahli Pasar",
-    icon: Home,
+    name: "Pemilik UMKM / Usaha",
+    badge: "Mitra Lokal 🏪",
+    description: "Bagi promosi tokomu & pantau bahan baku pasar murah",
+    icon: "🏪",
   },
   {
-    id: "Pencari Diskon Umum",
-    title: "Pencari Diskon Umum",
-    desc: "Eksplorasi seluruh promo terbaik di sekitar tempat tinggal",
-    badgeLabel: "Deal Hunter",
-    icon: ShoppingBag,
+    name: "Pencari Diskon Umum",
+    badge: "Deal Hunter 🛍️",
+    description: "Eksplorasi seluruh promo terbaik di sekitar tempat tinggal",
+    icon: "🛍️",
   },
 ];
 
@@ -70,9 +66,30 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [selectedRole, setSelectedRole] = useState<UserRole>("Mahasiswa");
+  const [roleOptions, setRoleOptions] = useState(DEFAULT_ROLE_OPTIONS);
+  const [selectedRole, setSelectedRole] = useState("Mahasiswa");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    // Ambil daftar peran dinamis dari database master data
+    getRolesAction()
+      .then((res) => {
+        if (res.success && res.data.length > 0) {
+          const activeRoles = res.data.filter((r) => r.isActive);
+          if (activeRoles.length > 0) {
+            setRoleOptions(activeRoles.map((r) => ({
+              name: r.name,
+              badge: r.badge,
+              description: r.description,
+              icon: r.icon,
+            })));
+            setSelectedRole(activeRoles[0].name);
+          }
+        }
+      })
+      .catch((e) => console.warn("Fallback role options:", e));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -312,13 +329,12 @@ export default function RegisterPage() {
               </div>
 
               <div className="grid grid-cols-1 gap-2 max-h-56 overflow-y-auto pr-1">
-                {ROLE_OPTIONS.map((opt) => {
-                  const isSelected = selectedRole === opt.id;
-                  const Icon = opt.icon;
+                {roleOptions.map((opt) => {
+                  const isSelected = selectedRole === opt.name;
                   return (
                     <div
-                      key={opt.id}
-                      onClick={() => setSelectedRole(opt.id)}
+                      key={opt.name}
+                      onClick={() => setSelectedRole(opt.name)}
                       className={cn(
                         "flex items-center gap-3 rounded-lg border p-2.5 cursor-pointer transition-all",
                         isSelected
@@ -327,28 +343,28 @@ export default function RegisterPage() {
                       )}
                     >
                       <div className={cn(
-                        "flex h-8 w-8 items-center justify-center rounded-md shrink-0 transition-colors",
+                        "flex h-8 w-8 items-center justify-center rounded-md shrink-0 transition-colors text-base",
                         isSelected
                           ? "bg-red-600 text-white shadow-xs"
                           : "bg-zinc-800 text-zinc-400"
                       )}>
-                        <Icon className="h-4 w-4" />
+                        <span>{opt.icon || "🏷️"}</span>
                       </div>
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-1">
                           <p className={cn("text-xs font-semibold truncate", isSelected ? "text-white" : "text-zinc-200")}>
-                            {opt.title}
+                            {opt.name}
                           </p>
                           <span className={cn(
                             "text-[9px] px-1.5 py-0.5 rounded font-mono shrink-0",
                             isSelected ? "bg-red-600/30 text-red-300 border border-red-500/40" : "bg-zinc-800 text-zinc-400"
                           )}>
-                            {opt.badgeLabel}
+                            {opt.badge}
                           </span>
                         </div>
                         <p className="text-[10px] text-zinc-400 truncate mt-0.5">
-                          {opt.desc}
+                          {opt.description}
                         </p>
                       </div>
 
