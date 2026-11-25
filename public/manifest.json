@@ -1,0 +1,21 @@
+{
+  "name": "Temurah - Komunitas Berbagi Diskon Lokal",
+  "short_name": "Temurah",
+  "description": "Temukan dan bagikan promo diskon sembako, supermarket, dan pasar lokal terverifikasi warga sekitar.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#dc2626",
+  "icons": [
+    {
+      "src": "/temurah-icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/temurah-icon.webp",
+      "sizes": "512x512",
+      "type": "image/webp"
+    }
+  ]
+}

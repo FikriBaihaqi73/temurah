@@ -66,6 +66,7 @@ describe("E2E Full Application Lifecycle Flow", () => {
     targetId: string;
     reporterId: string;
     reason: string;
+    description?: string;
     status: "PENDING" | "RESOLVED" | "DISMISSED";
     actionNotes?: string;
   }
