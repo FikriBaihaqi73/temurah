@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { 
   SlidersHorizontal,
   ChevronDown,
   Flame,
   Clock,
   Percent,
-  Filter
+  Filter,
+  Loader2,
+  CheckCircle2
 } from "lucide-react";
 import { HeaderNav } from "@/components/HeaderNav";
 import { PromoCard } from "@/features/promo";
@@ -45,11 +47,16 @@ export default function LandingPage() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [promos, setPromos] = useState<PromoPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [totalPromos, setTotalPromos] = useState(0);
   
   // State untuk Detail Sheet Promo Aktif
   const [activeDetailPromo, setActiveDetailPromo] = useState<PromoPost | null>(null);
 
   const filterRef = useRef<HTMLDivElement>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   // Minta izin lokasi otomatis saat pertama kali halaman dimuat (Auto-detect Geolocation)
   useEffect(() => {
@@ -88,9 +95,12 @@ export default function LandingPage() {
     }
   }, []);
 
-  // Muat promosi dari database server berdasarkan filter, pencarian, wilayah & radius
+  // Muat promosi dari database server berdasarkan filter, pencarian, wilayah & radius (Reset ke halaman 1)
   useEffect(() => {
     let isMounted = true;
+    setIsLoading(true);
+    setPage(1);
+
     const timer = setTimeout(async () => {
       try {
         const res = await getPromotionsAction({
@@ -101,10 +111,14 @@ export default function LandingPage() {
           userLat: userCoords?.lat,
           userLng: userCoords?.lng,
           radiusKm: selectedRadius,
+          page: 1,
+          limit: 15,
         });
         if (isMounted) {
           if (res.success && res.data) {
             setPromos(res.data);
+            setHasMore(res.pagination?.hasMore ?? false);
+            setTotalPromos(res.pagination?.total ?? res.data.length);
           }
           setIsLoading(false);
         }
@@ -121,6 +135,65 @@ export default function LandingPage() {
       clearTimeout(timer);
     };
   }, [searchQuery, selectedCategory, selectedStoreType, selectedLocation, selectedRadius, userCoords]);
+
+  // Fungsi muat halaman berikutnya (Infinite Scroll ala Shopee)
+  const loadMorePromos = useCallback(async () => {
+    if (isLoading || isLoadingMore || !hasMore) return;
+
+    setIsLoadingMore(true);
+    const nextPage = page + 1;
+
+    try {
+      const res = await getPromotionsAction({
+        searchQuery,
+        category: selectedCategory,
+        storeType: selectedStoreType,
+        area: selectedLocation,
+        userLat: userCoords?.lat,
+        userLng: userCoords?.lng,
+        radiusKm: selectedRadius,
+        page: nextPage,
+        limit: 15,
+      });
+
+      if (res.success && res.data) {
+        setPromos((prev) => {
+          const existingIds = new Set(prev.map((p) => p.id));
+          const uniqueNew = res.data!.filter((p) => !existingIds.has(p.id));
+          return [...prev, ...uniqueNew];
+        });
+        setPage(nextPage);
+        setHasMore(res.pagination?.hasMore ?? false);
+        if (res.pagination?.total !== undefined) {
+          setTotalPromos(res.pagination.total);
+        }
+      } else {
+        setHasMore(false);
+      }
+    } catch (err) {
+      console.error("Gagal memuat promo tambahan:", err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [isLoading, isLoadingMore, hasMore, page, searchQuery, selectedCategory, selectedStoreType, selectedLocation, userCoords, selectedRadius]);
+
+  // Observer untuk mendeteksi scroll mencapai bagian bawah daftar promo
+  useEffect(() => {
+    const sentinel = loadMoreRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoading && !isLoadingMore) {
+          loadMorePromos();
+        }
+      },
+      { rootMargin: "250px" }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, isLoading, isLoadingMore, loadMorePromos]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -389,13 +462,30 @@ export default function LandingPage() {
                     Promo Terbaru Masuk
                   </h2>
                 </div>
-                <span className="text-[11px] text-zinc-400 font-medium">{latestPosts.length} promo</span>
+                <span className="text-[11px] text-zinc-400 font-medium">
+                  Menampilkan {latestPosts.length} dari {totalPromos || latestPosts.length} promo
+                </span>
               </div>
 
               <div className="grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5">
                 {latestPosts.map((promo) => (
                   <PromoCard key={promo.id} promo={promo} onSelect={(p) => setActiveDetailPromo(p)} />
                 ))}
+              </div>
+
+              {/* Sentinel Infinite Scroll ala Shopee */}
+              <div ref={loadMoreRef} className="mt-8 flex flex-col items-center justify-center py-4">
+                {isLoadingMore ? (
+                  <div className="flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-4 py-2 text-xs font-medium text-zinc-600 shadow-xs dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
+                    <Loader2 className="h-4 w-4 animate-spin text-red-600" />
+                    <span>Memuat promo lainnya...</span>
+                  </div>
+                ) : !hasMore && latestPosts.length > 0 ? (
+                  <div className="flex items-center gap-1.5 text-xs text-zinc-400 dark:text-zinc-500">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                    <span>Semua promo telah ditampilkan</span>
+                  </div>
+                ) : null}
               </div>
             </section>
           </>
