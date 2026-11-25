@@ -8,7 +8,15 @@ const APP_DEFAULT_TITLE = "Temurah — Komunitas Berbagi Diskon & Promo Lokal Te
 const APP_TITLE_TEMPLATE = "%s | Temurah";
 const APP_DESCRIPTION =
   "Temukan dan bagikan informasi promo diskon sembako, supermarket, minimarket, pasar tradisional, dan marketplace terdekat yang divalidasi langsung oleh komunitas warga.";
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://temurah.id";
+
+// Dapatkan base URL yang adaptif terhadap environment deployment (Vercel / Custom Domain)
+const APP_URL =
+  process.env.NEXT_PUBLIC_APP_URL ||
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : "https://temurah.vercel.app");
 
 export const viewport: Viewport = {
   themeColor: [
@@ -60,15 +68,24 @@ export const metadata: Metadata = {
     siteName: APP_NAME,
     images: [
       {
-        url: "/og-image.svg",
+        url: "/og-image.png",
         width: 1200,
         height: 630,
+        type: "image/png",
+        alt: "Temurah - Komunitas Berbagi Diskon & Validasi Promo Lokal Warga",
+      },
+      {
+        url: "/og-image.jpg",
+        width: 1200,
+        height: 630,
+        type: "image/jpeg",
         alt: "Temurah - Komunitas Berbagi Diskon & Validasi Promo Lokal Warga",
       },
       {
         url: "/temurah-logo-cropped.png",
         width: 800,
         height: 400,
+        type: "image/png",
         alt: "Temurah Logo",
       },
     ],
@@ -77,7 +94,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: APP_DEFAULT_TITLE,
     description: APP_DESCRIPTION,
-    images: ["/og-image.svg"],
+    images: ["/og-image.png"],
     creator: "@temurah_id",
   },
   robots: {
